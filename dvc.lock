@@ -1,0 +1,27 @@
+schema: '2.0'
+stages:
+  prepare_data:
+    cmd: uv run python -m mlops_project.data.prepare
+    deps:
+    - path: data/raw/kaggle_3m
+      hash: md5
+      md5: 23430e92121bab14d02529364c8477f9.dir
+      size: 1056310504
+      nfiles: 7860
+    - path: src/mlops_project/data/prepare.py
+      hash: md5
+      md5: 52414cc33756490eda3a87f601b4cc1b
+      size: 6873
+    - path: src/mlops_project/data/splits.py
+      hash: md5
+      md5: 49be50d7022555fb13335f503fe5b70f
+      size: 4780
+    outs:
+    - path: data/processed/norm_stats.json
+      hash: md5
+      md5: 21c0d805b66ea94417c2e3e8fc132b07
+      size: 226
+    - path: data/processed/slice_index.parquet
+      hash: md5
+      md5: eae958106e2d1c3d4b8625a4e2abf755
+      size: 84468

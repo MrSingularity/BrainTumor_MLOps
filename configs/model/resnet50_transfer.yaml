@@ -1,5 +1,0 @@
-# ResNet50 pre-trained on ImageNet, frozen backbone + fresh binary head.
-name: resnet50_transfer
-kwargs:
-  freeze_backbone: true
-  dropout: 0.3
