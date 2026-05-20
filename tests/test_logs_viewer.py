@@ -7,17 +7,17 @@ Covers load_logs() and analyze_logs().
 from __future__ import annotations
 
 import json
-import pytest
 from pathlib import Path
-import unittest.mock as mock
+
+import pytest
 
 import mlops_project.api.logs_viewer as logs_viewer
-from mlops_project.api.logs_viewer import load_logs, analyze_logs
-
+from mlops_project.api.logs_viewer import analyze_logs, load_logs
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_logs(path: Path, entries: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,6 +43,7 @@ SAMPLE_FAILURE = {
 # ---------------------------------------------------------------------------
 # load_logs()
 # ---------------------------------------------------------------------------
+
 
 class TestLoadLogs:
     def test_returns_empty_list_when_no_file(self, tmp_path, monkeypatch):
@@ -108,6 +109,7 @@ class TestLoadLogs:
 # ---------------------------------------------------------------------------
 # analyze_logs()
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeLogs:
     def test_prints_no_logs_message_when_empty(self, tmp_path, monkeypatch, capsys):

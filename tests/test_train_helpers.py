@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import torch
 import pytest
-from torch.utils.data import DataLoader, TensorDataset
+import torch
+from torch.utils.data import DataLoader
 
-from mlops_project.training.train import _resolve_device, _pos_weight_from_train
+from mlops_project.training.train import _pos_weight_from_train, _resolve_device
 
 
 class TestResolveDevice:
@@ -30,10 +30,11 @@ class TestResolveDevice:
 
 class TestPosWeightFromTrain:
     def _make_loader(self, labels: list[int]) -> DataLoader:
-        t = torch.tensor(labels, dtype=torch.float32)
         # Wrap in a list of dicts to match expected batch format
-        data = [{"label": torch.tensor(l, dtype=torch.float32), 
-                 "image": torch.zeros(3, 64, 64)} for l in labels]
+        data = [
+            {"label": torch.tensor(label, dtype=torch.float32), "image": torch.zeros(3, 64, 64)}
+            for label in labels
+        ]
         return DataLoader(data, batch_size=4)
 
     def test_returns_float(self):
