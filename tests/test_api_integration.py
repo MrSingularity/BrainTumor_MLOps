@@ -376,3 +376,23 @@ class TestPredictFileBadImage:
             data={"checkpoint_name": "missing.pt"},
         )
         assert resp.status_code == 400
+
+class TestPredictFileTooLarge:
+    @pytest.mark.asyncio
+    async def test_predict_file_413_on_large_file(self, client, monkeypatch, tmp_path):
+        ckpt = tmp_path / "resnet50_transfer.pt"
+        ckpt.touch()
+        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr(
+            "mlops_project.api.main.run_inference",
+            lambda *a, **kw: (_ for _ in ()).throw(
+                ValueError("Image too large: exceeds maximum allowed size")
+            ),
+        )
+        # 10MB of random bytes
+        large_bytes = b"x" * 10 * 1024 * 1024
+        resp = await client.post(
+            "/predict-file",
+            files={"file": ("large.png", large_bytes, "image/png")},
+        )
+        assert resp.status_code in (413, 422)
