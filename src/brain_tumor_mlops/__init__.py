@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from mlops-project!")
+    print("Hello from brain-tumor-mlops!")

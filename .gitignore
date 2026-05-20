@@ -113,6 +113,7 @@ htmlcov/
 
 # =============================================================================
 # Data — versioned via DVC, never via Git
+# Raw payloads stay out of Git; *.dvc pointer files DO get committed.
 # =============================================================================
 data/raw/*
 data/processed/*
@@ -120,6 +121,10 @@ data/interim/*
 data/external/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/raw/*.dvc
+!data/processed/*.dvc
+!data/interim/*.dvc
+!data/external/*.dvc
 
 # =============================================================================
 # Model artifacts — checkpoints in models/ are tracked via Git LFS (.pt files

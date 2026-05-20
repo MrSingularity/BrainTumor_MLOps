@@ -2,15 +2,15 @@
 
 Usage:
     # Train the default model (simple_cnn) with default settings:
-    uv run python -m mlops_project.training.train
+    uv run python -m brain_tumor_mlops.training.train
 
     # Override one or more values from the CLI (Hydra syntax):
-    uv run python -m mlops_project.training.train model=resnet50_transfer
-    uv run python -m mlops_project.training.train model=unet_classifier training.epochs=10
-    uv run python -m mlops_project.training.train data.batch_size=64 training.lr=1e-4
+    uv run python -m brain_tumor_mlops.training.train model=resnet50_transfer
+    uv run python -m brain_tumor_mlops.training.train model=unet_classifier training.epochs=10
+    uv run python -m brain_tumor_mlops.training.train data.batch_size=64 training.lr=1e-4
 
     # Run a multi-run sweep over models in one command:
-    uv run python -m mlops_project.training.train --multirun model=baseline,simple_cnn,unet_classifier,resnet50_transfer
+    uv run python -m brain_tumor_mlops.training.train --multirun model=baseline,simple_cnn,unet_classifier,resnet50_transfer
 
 The script:
     1. Loads the prepared slice index + normalisation stats (`prepare.py` outputs).
@@ -38,11 +38,11 @@ from omegaconf import DictConfig, OmegaConf
 from torch import nn
 from torch.utils.data import DataLoader
 
-from mlops_project.data.dataset import BrainMRIDataset, load_dataset_artifacts
-from mlops_project.data.transforms import eval_transform, train_transform
-from mlops_project.models.factory import build_model, count_parameters
-from mlops_project.training.metrics import classification_metrics
-from mlops_project.utils.wandb_logging import log_artifact, wandb_run
+from brain_tumor_mlops.data.dataset import BrainMRIDataset, load_dataset_artifacts
+from brain_tumor_mlops.data.transforms import eval_transform, train_transform
+from brain_tumor_mlops.models.factory import build_model, count_parameters
+from brain_tumor_mlops.training.metrics import classification_metrics
+from brain_tumor_mlops.utils.wandb_logging import log_artifact, wandb_run
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 

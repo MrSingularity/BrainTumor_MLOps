@@ -1,7 +1,7 @@
 """Smoke tests for BrainMRIDataset.
 
 Skipped if `data/processed/` artifacts have not been generated yet — the
-prep step runs in CI before this file via `python -m mlops_project.data.prepare`.
+prep step runs in CI before this file via `python -m brain_tumor_mlops.data.prepare`.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from mlops_project.data.dataset import (
+from brain_tumor_mlops.data.dataset import (
     BrainMRIDataset,
     NormalisationStats,
     load_dataset_artifacts,
@@ -23,7 +23,7 @@ PROCESSED = Path(__file__).resolve().parents[1] / "data" / "processed"
 @pytest.fixture(scope="module")
 def artifacts():
     if not (PROCESSED / "slice_index.parquet").exists():
-        pytest.skip("run `python -m mlops_project.data.prepare` first")
+        pytest.skip("run `python -m brain_tumor_mlops.data.prepare` first")
     return load_dataset_artifacts(PROCESSED)
 
 

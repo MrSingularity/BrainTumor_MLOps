@@ -1,7 +1,7 @@
 [project]
-name = "mlops-project"
+name = "brain-tumor-mlops"
 version = "0.1.0"
-description = "Add your description here"
+description = "End-to-end MLOps pipeline for brain tumor detection on MRI (LGG)."
 readme = "README.md"
 authors = [
     { name = "nathan massicot", email = "nathan.massicot@efrei.net" }
@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mlops-project = "mlops_project:main"
+brain-tumor-mlops = "brain_tumor_mlops:main"
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
@@ -32,6 +32,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "dvc>=3.67.1",
+    "dvc-gdrive>=3.0.1",
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.9",

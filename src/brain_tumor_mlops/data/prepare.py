@@ -14,7 +14,7 @@ tracks the same files for content-addressed local versioning. The pair is
 intentional: W&B for run-level lineage, DVC for raw bytes.
 
 Run:
-    uv run python -m mlops_project.data.prepare
+    uv run python -m brain_tumor_mlops.data.prepare
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
-from mlops_project.data.splits import attach_split_to_slices, make_patient_split
-from mlops_project.utils.wandb_logging import log_artifact, wandb_run
+from brain_tumor_mlops.data.splits import attach_split_to_slices, make_patient_split
+from brain_tumor_mlops.utils.wandb_logging import log_artifact, wandb_run
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"

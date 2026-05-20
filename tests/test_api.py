@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
 
-from mlops_project.api.main import app
+from brain_tumor_mlops.api.main import app
 
 client = TestClient(app)
 

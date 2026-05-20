@@ -114,7 +114,7 @@ def load_dataset_artifacts(
     stats_path = processed_dir / "norm_stats.json"
     if not index_path.exists() or not stats_path.exists():
         raise FileNotFoundError(
-            f"Run `python -m mlops_project.data.prepare` first — "
+            f"Run `python -m brain_tumor_mlops.data.prepare` first — "
             f"missing {index_path} and/or {stats_path}"
         )
     index = pd.read_parquet(index_path)

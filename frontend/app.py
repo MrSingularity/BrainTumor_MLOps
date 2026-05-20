@@ -24,8 +24,8 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from mlops_project.models.factory import load_checkpoint
-from mlops_project.api.metrics import metrics
+from brain_tumor_mlops.models.factory import load_checkpoint
+from brain_tumor_mlops.api.metrics import metrics
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -250,7 +250,7 @@ def load_normalization_stats(path_str: str) -> tuple[np.ndarray, np.ndarray]:
     if not path.exists():
         raise FileNotFoundError(
             "Normalization statistics not found. "
-            "Run `python -m mlops_project.data.prepare` to generate them."
+            "Run `python -m brain_tumor_mlops.data.prepare` to generate them."
         )
     payload = json.loads(path.read_text())
     mean = np.array(payload["mean"], dtype=np.float32).reshape(3, 1, 1)

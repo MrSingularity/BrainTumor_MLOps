@@ -1,0 +1,27 @@
+schema: '2.0'
+stages:
+  prepare_data:
+    cmd: uv run python -m brain_tumor_mlops.data.prepare
+    deps:
+    - path: data/raw/kaggle_3m
+      hash: md5
+      md5: 23430e92121bab14d02529364c8477f9.dir
+      size: 1056310504
+      nfiles: 7860
+    - path: src/brain_tumor_mlops/data/prepare.py
+      hash: md5
+      md5: 02d5145fbb3afc0398fa973c7b588380
+      size: 6885
+    - path: src/brain_tumor_mlops/data/splits.py
+      hash: md5
+      md5: 49be50d7022555fb13335f503fe5b70f
+      size: 4780
+    outs:
+    - path: data/processed/norm_stats.json
+      hash: md5
+      md5: 21c0d805b66ea94417c2e3e8fc132b07
+      size: 226
+    - path: data/processed/slice_index.parquet
+      hash: md5
+      md5: eae958106e2d1c3d4b8625a4e2abf755
+      size: 84468
