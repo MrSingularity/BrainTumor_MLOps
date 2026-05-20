@@ -1,0 +1,31 @@
+repos:
+  # --- Ruff: lint + format (replaces flake8, isort, black) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: [--fix]
+      - id: ruff-format
+        name: ruff format
+ 
+  # --- General file hygiene ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+        name: detect private key
+      - id: check-merge-conflict
+        name: check merge conflict
+      - id: end-of-file-fixer
+        name: end of file fixer
+      - id: trailing-whitespace
+        name: trim trailing whitespace
+ 
+  # --- Conventional commits on commit-msg ---
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, test, refactor, perf, chore, style]
