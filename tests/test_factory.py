@@ -203,3 +203,30 @@ class TestLoadCheckpoint:
         _, ckpt = load_checkpoint(ckpt_path)
         assert "best_val_auc" in ckpt
         assert ckpt["best_val_auc"] == pytest.approx(0.88)
+
+
+class TestStatsLogisticRegression:
+    def test_features_shape(self):
+        from mlops_project.models.baseline import StatsLogisticRegression
+        model = StatsLogisticRegression()
+        x = torch.randn(4, 3, 64, 64)
+        features = model._features(x)
+        assert features.shape == (4, 6)
+
+    def test_forward_output_shape(self):
+        from mlops_project.models.baseline import StatsLogisticRegression
+        model = StatsLogisticRegression()
+        x = torch.randn(4, 3, 64, 64)
+        out = model(x)
+        assert out.shape == (4,)
+
+    def test_forward_is_finite(self):
+        from mlops_project.models.baseline import StatsLogisticRegression
+        model = StatsLogisticRegression()
+        x = torch.randn(4, 3, 64, 64)
+        out = model(x)
+        assert torch.isfinite(out).all()
+
+    def test_n_features_is_six(self):
+        from mlops_project.models.baseline import StatsLogisticRegression
+        assert StatsLogisticRegression.n_features == 6
