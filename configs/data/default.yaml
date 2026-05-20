@@ -1,0 +1,3 @@
+# Data pipeline parameters. Override on CLI: data.batch_size=64
+batch_size: 32
+num_workers: 0

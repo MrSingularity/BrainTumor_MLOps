@@ -1,0 +1,5 @@
+# 4-block from-scratch CNN, no pre-training.
+name: simple_cnn
+kwargs:
+  in_channels: 3
+  dropout: 0.3

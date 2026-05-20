@@ -1,0 +1,14 @@
+stages:
+  prepare_data:
+    cmd: uv run python -m mlops_project.data.prepare
+    deps:
+      - data/raw/kaggle_3m
+      - src/mlops_project/data/prepare.py
+      - src/mlops_project/data/splits.py
+    outs:
+      - data/processed/slice_index.parquet
+      - data/processed/norm_stats.json
+    desc: |
+      Index every slice, compute per-channel normalisation stats on the train
+      split, and assign patient-level train/val/test labels. Outputs are also
+      uploaded to W&B as the artifact `lgg-mri-prepared` for run-level lineage.

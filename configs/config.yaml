@@ -1,0 +1,29 @@
+# Root Hydra config. Override any field on the CLI:
+#   uv run python -m mlops_project.training.train model=resnet50 training.epochs=10
+
+defaults:
+  - model: simple_cnn        # default model — CLI override: model=resnet50
+  - data: default
+  - training: default
+  - _self_
+
+# Run-time bookkeeping. `paths` is computed relative to project root, not CWD,
+# because Hydra changes CWD per run unless we tell it not to.
+paths:
+  project_root: ${oc.env:PROJECT_ROOT,${hydra:runtime.cwd}}
+  processed: ${paths.project_root}/data/processed
+  models: ${paths.project_root}/models
+
+seed: 42
+device: auto             # auto | cpu | cuda | mps
+no_wandb: false          # if true, force-disable W&B even when key is set
+
+# Hydra runtime: avoid the per-run output dir for now — keep it simple.
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}_${model.name}
+  sweep:
+    dir: outputs/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${model.name}_${hydra.job.num}
+  job:
+    chdir: false         # keep CWD = project root so relative paths work

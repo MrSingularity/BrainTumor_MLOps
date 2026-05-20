@@ -1,0 +1,4 @@
+# Training-loop parameters. Override on CLI: training.epochs=20 training.lr=1e-4
+epochs: 5
+lr: 1.0e-3
+weight_decay: 1.0e-4

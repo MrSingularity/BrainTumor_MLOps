@@ -1,0 +1,6 @@
+# U-Net encoder reused as a classifier — medical-imaging gold-standard backbone.
+name: unet_classifier
+kwargs:
+  in_channels: 3
+  base: 32
+  dropout: 0.3
