@@ -18,6 +18,30 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 
 
+@pytest.fixture(autouse=True)
+def ensure_dummy_checkpoints(tmp_path, monkeypatch):
+    """Ensure a models/ directory with lightweight checkpoint files exists for tests.
+
+    Some tests expect `resnet50_transfer.pt` (and others) to exist on disk. Create
+    zero-byte placeholder files if they're missing so endpoints that check for
+    checkpoint presence behave deterministically in CI.
+    """
+    # Create the models dir where the application expects it (core.PROJECT_ROOT/models)
+    import mlops_project.api.core as core
+
+    core_models_dir = core.PROJECT_ROOT / "models"
+    core_models_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("resnet50_transfer.pt", "baseline.pt"):
+        p = core_models_dir / name
+        if not p.exists():
+            p.write_bytes(b"")
+
+    # Also ensure the API's startup and core validate paths see available checkpoints
+    monkeypatch.setattr("mlops_project.api.main.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    monkeypatch.setattr("mlops_project.api.core.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    yield
+
+
 def get_sample_image_bytes() -> bytes:
     """Get bytes from a sample image in the dataset."""
     samples = list(DATA_ROOT.glob("*/[!_]*.tif"))
@@ -112,6 +136,7 @@ def test_predict_empty_image():
             "checkpoint_name": "resnet50_transfer.pt",
         },
     )
+    # debug prints removed
     assert response.status_code == 422
     assert "Empty" in response.json()["detail"] or "Invalid" in response.json()["detail"]
 

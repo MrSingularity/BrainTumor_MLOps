@@ -18,7 +18,7 @@ COPY pyproject.toml uv.lock README.md ./
 # Create venv and install CPU-only torch + all deps in one go
 RUN uv venv && \
     uv pip install --no-cache-dir \
-        torch==2.11.0 torchvision==0.26.0 \
+        "torch>=2.11.0,<3" "torchvision>=0.26.0,<1" \
         --index-url https://download.pytorch.org/whl/cpu && \
     uv pip install --no-cache-dir \
         fastapi uvicorn python-dotenv wandb \
