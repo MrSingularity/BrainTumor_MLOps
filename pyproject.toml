@@ -13,6 +13,7 @@ dependencies = [
     "kaggle>=2.1.0",
     "omegaconf>=2.3.0",
     "pyarrow>=24.0.0",
+    "fastparquet>=2024.5.0",
     "python-dotenv>=1.2.2",
     "streamlit>=1.45.1",
     "scikit-learn>=1.8.0",

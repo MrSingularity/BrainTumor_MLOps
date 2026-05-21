@@ -132,7 +132,7 @@ def main() -> None:
 
     index_path = PROCESSED_DIR / "slice_index.parquet"
     stats_path = PROCESSED_DIR / "norm_stats.json"
-    index.to_parquet(index_path, index=False)
+    index.to_parquet(index_path, index=False, engine="fastparquet")
     stats_path.write_text(json.dumps(stats, indent=2))
     print(f"→ wrote {index_path.relative_to(PROJECT_ROOT)} ({index_path.stat().st_size/1024:.1f} KB)")
     print(f"→ wrote {stats_path.relative_to(PROJECT_ROOT)}")

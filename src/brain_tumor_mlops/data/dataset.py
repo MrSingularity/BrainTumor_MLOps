@@ -117,6 +117,8 @@ def load_dataset_artifacts(
             f"Run `python -m brain_tumor_mlops.data.prepare` first — "
             f"missing {index_path} and/or {stats_path}"
         )
-    index = pd.read_parquet(index_path)
+    # Use fastparquet (pure-Python) instead of pyarrow because pyarrow.dataset
+    # segfaults on Windows when imported after torch+CUDA (DLL conflict).
+    index = pd.read_parquet(index_path, engine="fastparquet")
     stats = NormalisationStats.from_dict(json.loads(stats_path.read_text()))
     return index, stats
