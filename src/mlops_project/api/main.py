@@ -55,9 +55,11 @@ def health() -> HealthResponse:
 
 
 @app.get("/metrics")
-def get_metrics() -> dict:
-    """Get API metrics (requests, latency, predictions)."""
-    return metrics.get_metrics()
+def get_metrics():
+    """Prometheus metrics endpoint."""
+    from fastapi.responses import Response
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/models", response_model=AvailableModelsResponse)

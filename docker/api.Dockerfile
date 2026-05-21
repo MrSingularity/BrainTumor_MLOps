@@ -30,6 +30,12 @@ RUN uv venv && \
 COPY src/ ./src/
 RUN uv pip install --no-cache-dir -e . --no-deps
 
+#Install prometheus client separately to avoid torch's dependency resolver issues
+RUN uv pip install --no-cache-dir \
+    fastapi uvicorn python-dotenv wandb \
+    albumentations scikit-learn pyarrow \
+    hydra-core omegaconf pillow numpy \
+    python-multipart httpx prometheus-client
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 # Slim image with only the venv and app code — no build tools

@@ -6,6 +6,29 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
+
+# Prometheus metrics
+PREDICTION_COUNTER = Counter(
+    "brain_tumor_predictions_total",
+    "Total predictions made",
+    ["label", "model_name"]
+)
+CONFIDENCE_HISTOGRAM = Histogram(
+    "brain_tumor_confidence",
+    "Prediction confidence scores",
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+)
+LATENCY_HISTOGRAM = Histogram(
+    "brain_tumor_latency_ms",
+    "Inference latency in milliseconds",
+    buckets=[10, 25, 50, 100, 250, 500, 1000, 2500]
+)
+REQUEST_COUNTER = Counter(
+    "brain_tumor_requests_total",
+    "Total API requests",
+    ["status"]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +75,18 @@ class PredictionMetrics:
             self.total_latency_ms += latency_ms
             self.min_latency_ms = min(self.min_latency_ms, latency_ms)
             self.max_latency_ms = max(self.max_latency_ms, latency_ms)
-            
+
             # Update label counts
             self.predictions_by_label[label] = self.predictions_by_label.get(label, 0) + 1
             
             # Update model usage
             self.models_used[model_name] = self.models_used.get(model_name, 0) + 1
 
+        PREDICTION_COUNTER.labels(label=label, model_name=model_name).inc()
+        CONFIDENCE_HISTOGRAM.observe(confidence)
+        LATENCY_HISTOGRAM.observe(latency_ms)
+        REQUEST_COUNTER.labels(status="success").inc()   
+        
         # Write to JSONL log file
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -83,6 +111,7 @@ class PredictionMetrics:
         with self._lock:
             self.total_requests += 1
             self.failed_requests += 1
+            REQUEST_COUNTER.labels(status="error").inc()
 
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
