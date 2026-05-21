@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: brain-tumor-api:latest
+    container_name: brain-tumor-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data/processed:/app/data/processed:ro
+      - ./models:/app/models:ro
+      - ./data/logs:/app/data/logs
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    image: python:3.12-slim
+    container_name: brain-tumor-frontend
+    working_dir: /app
+    command: >
+      bash -c "pip install streamlit requests pillow numpy torch torchvision --quiet &&
+               streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app/frontend:ro
+      - ./src:/app/src:ro
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+    environment:
+      - API_URL=http://api:8000
+      - PYTHONPATH=/app/src
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
