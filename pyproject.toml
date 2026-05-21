@@ -51,7 +51,11 @@ dev = [
     "jupyter>=1.1.1",
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
-    "pandas>=3.0.2",
+    # Pinned <3 because pandas 3.0 makes ArrowStringArray the default backing
+    # for string columns, which segfaults on Windows when used alongside
+    # torch+CUDA (pyarrow DLL conflict). pandas 2.x stores strings as object
+    # dtype and avoids the issue entirely.
+    "pandas>=2.2,<3",
     "pillow>=12.2.0",
     "pytest>=9.0.3",
     "scikit-image>=0.26.0",
