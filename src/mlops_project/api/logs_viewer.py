@@ -5,6 +5,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
+from statistics import mean
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOGS_FILE = PROJECT_ROOT / "data" / "logs" / "predictions.jsonl"
@@ -24,6 +25,90 @@ def load_logs() -> list[dict]:
                 except json.JSONDecodeError:
                     pass
     return logs
+
+
+def summarize_logs(logs: list[dict] | None = None) -> dict:
+    """Summarize prediction logs for operational dashboards."""
+    entries = logs if logs is not None else load_logs()
+    successes = [log for log in entries if "label" in log]
+    failures = [log for log in entries if "error" in log]
+    confidences = [float(log.get("confidence", 0.0)) for log in successes]
+    latencies = [float(log.get("latency_ms", 0.0)) for log in successes]
+    positive_rate = (
+        sum(1 for log in successes if log.get("label") == "tumor") / len(successes) * 100
+        if successes
+        else 0.0
+    )
+    by_model = defaultdict(int)
+    by_label = defaultdict(int)
+    for log in successes:
+        by_model[log.get("model_name", "unknown")] += 1
+        by_label[log.get("label", "unknown")] += 1
+    return {
+        "total_events": len(entries),
+        "successful_events": len(successes),
+        "failed_events": len(failures),
+        "success_rate": len(successes) / len(entries) * 100 if entries else 0.0,
+        "positive_prediction_rate": positive_rate,
+        "average_confidence": mean(confidences) if confidences else 0.0,
+        "average_latency_ms": mean(latencies) if latencies else 0.0,
+        "predictions_by_model": dict(by_model),
+        "predictions_by_label": dict(by_label),
+        "recent_successes": successes[-5:],
+        "recent_failures": failures[-5:],
+    }
+
+
+def build_drift_summary(logs: list[dict] | None = None) -> dict:
+    """Build a simple drift summary by comparing early and recent logs."""
+    entries = logs if logs is not None else load_logs()
+    if not entries:
+        return {
+            "total_events": 0,
+            "reference_positive_rate": 0.0,
+            "current_positive_rate": 0.0,
+            "positive_rate_delta": 0.0,
+            "confidence_delta": 0.0,
+            "latency_delta_ms": 0.0,
+            "drift_score": 0.0,
+        }
+
+    midpoint = max(len(entries) // 2, 1)
+    reference = [log for log in entries[:midpoint] if "label" in log]
+    current = [log for log in entries[midpoint:] if "label" in log] or reference
+
+    def _mean(values: list[float]) -> float:
+        return sum(values) / len(values) if values else 0.0
+
+    def _positive_rate(rows: list[dict]) -> float:
+        return (
+            sum(1 for row in rows if row.get("label") == "tumor") / len(rows) * 100
+            if rows
+            else 0.0
+        )
+
+    reference_confidences = [float(row.get("confidence", 0.0)) for row in reference]
+    current_confidences = [float(row.get("confidence", 0.0)) for row in current]
+    reference_latencies = [float(row.get("latency_ms", 0.0)) for row in reference]
+    current_latencies = [float(row.get("latency_ms", 0.0)) for row in current]
+    reference_positive_rate = _positive_rate(reference)
+    current_positive_rate = _positive_rate(current)
+    confidence_delta = abs(_mean(current_confidences) - _mean(reference_confidences))
+    latency_delta_ms = abs(_mean(current_latencies) - _mean(reference_latencies))
+    positive_rate_delta = current_positive_rate - reference_positive_rate
+    drift_score = min(1.0, confidence_delta * 2.0 + abs(positive_rate_delta) / 100.0 + latency_delta_ms / 1000.0)
+
+    return {
+        "total_events": len(entries),
+        "reference_events": len(reference),
+        "current_events": len(current),
+        "reference_positive_rate": reference_positive_rate,
+        "current_positive_rate": current_positive_rate,
+        "positive_rate_delta": positive_rate_delta,
+        "confidence_delta": confidence_delta,
+        "latency_delta_ms": latency_delta_ms,
+        "drift_score": drift_score,
+    }
 
 
 def analyze_logs():

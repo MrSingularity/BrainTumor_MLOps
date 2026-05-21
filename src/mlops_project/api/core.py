@@ -106,6 +106,20 @@ def validate_checkpoint(checkpoint_name: str) -> Path:
     return checkpoint_path
 
 
+def summarize_image_stats(image_bytes: bytes) -> dict[str, float | int]:
+    """Compute lightweight image statistics for observability."""
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image_array = np.asarray(image, dtype=np.float32) / 255.0
+    height, width, channels = image_array.shape
+    return {
+        "image_mean": float(image_array.mean()),
+        "image_std": float(image_array.std()),
+        "image_height": int(height),
+        "image_width": int(width),
+        "image_channels": int(channels),
+    }
+
+
 def load_model_cached(checkpoint_path: Path) -> tuple:
     """Load model from checkpoint (can be cached at application level)."""
     model, ckpt = load_checkpoint(str(checkpoint_path), device="cpu", eval_mode=True)
@@ -174,6 +188,8 @@ def run_inference(
     except ValueError as e:
         metrics.log_error(checkpoint_name, str(e))
         raise
+
+    image_stats = summarize_image_stats(image_bytes)
     
     # Load normalization stats and model
     mean, std = get_normalization_stats()
@@ -204,6 +220,7 @@ def run_inference(
         image_hash=image_hash,
         checkpoint_name=checkpoint_name,
         threshold=threshold,
+        image_stats=image_stats,
     )
     
     return {

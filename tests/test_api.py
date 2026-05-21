@@ -53,6 +53,22 @@ def test_metrics():
     assert "models_used" in data
 
 
+def test_prometheus_metrics():
+    """Test Prometheus metrics endpoint."""
+    response = client.get("/metrics/prometheus")
+    assert response.status_code == 200
+    assert "brain_tumor_api_requests_total" in response.text
+
+
+def test_monitoring_summary():
+    """Test monitoring summary endpoint."""
+    response = client.get("/monitoring/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_events" in data
+    assert "positive_prediction_rate" in data
+
+
 def test_root():
     """Test root endpoint."""
     response = client.get("/")
