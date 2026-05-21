@@ -52,6 +52,17 @@ jobs:
           push: false
           tags: brain-tumor-frontend:ci
 
+      - name: Create minimal .env for docker compose
+        run: |
+          cat > .env <<'EOF'
+          API_PORT=8000
+          GRAFANA_USER=admin
+          GRAFANA_PASSWORD=admin
+          WANDB_API_KEY=
+          WANDB_PROJECT=brain-tumor-classification
+          WANDB_ENTITY=
+          EOF
+
       - name: Start docker-compose services (api, prometheus, grafana)
         run: |
           docker compose up -d --build api prometheus grafana frontend
