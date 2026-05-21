@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +16,29 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOGS_DIR = PROJECT_ROOT / "data" / "logs"
-PREDICTIONS_LOG = LOGS_DIR / "predictions.jsonl"
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+
+
+def get_predictions_log_path() -> Path:
+    """Return the active predictions log path.
+
+    Tests write to a dedicated JSONL file so synthetic failures do not
+    pollute the operational dashboard.
+    """
+    override = os.getenv("MLOPS_PREDICTIONS_LOG")
+    if override:
+        return Path(override)
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return LOGS_DIR / "predictions.test.jsonl"
+    return LOGS_DIR / "predictions.jsonl"
+
+
+def get_drift_status_path() -> Path:
+    """Return the latest drift status JSON file path."""
+    override = os.getenv("MLOPS_DRIFT_STATUS_FILE")
+    if override:
+        return Path(override)
+    return PROCESSED_DIR / "drift_status.json"
 
 
 def ensure_logs_dir() -> None:
@@ -97,6 +120,71 @@ class PredictionMetrics:
             registry=self._registry,
             buckets=(0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3),
         )
+        self.drift_status_gauge = Gauge(
+            "brain_tumor_api_drift_status",
+            "Current operational drift status as a one-hot metric",
+            ["status"],
+            registry=self._registry,
+        )
+        self.drift_score_gauge = Gauge(
+            "brain_tumor_api_drift_score",
+            "Current operational drift score",
+            registry=self._registry,
+        )
+        self.drift_status_code_gauge = Gauge(
+            "brain_tumor_api_drift_status_code",
+            "Current operational drift status code (OK=0, WARN=1, ALERT=2, UNKNOWN=-1)",
+            registry=self._registry,
+        )
+        self.drift_report_timestamp = Gauge(
+            "brain_tumor_api_drift_report_timestamp_seconds",
+            "Unix timestamp of the most recent drift report",
+            registry=self._registry,
+        )
+
+    def _refresh_drift_snapshot(self) -> dict[str, Any]:
+        """Load the latest drift status from disk and publish it as metrics."""
+        snapshot = {
+            "status": "UNKNOWN",
+            "status_code": -1,
+            "score": 0.0,
+            "generated_at": None,
+            "report_path": None,
+        }
+
+        status_path = get_drift_status_path()
+        if status_path.exists():
+            try:
+                payload = json.loads(status_path.read_text(encoding="utf-8"))
+            except Exception as exc:  # pragma: no cover - defensive logging only
+                logger.warning("Failed to read drift status file %s: %s", status_path, exc)
+            else:
+                snapshot.update(
+                    {
+                        "status": str(payload.get("status", "UNKNOWN") or "UNKNOWN").upper(),
+                        "status_code": int(payload.get("status_code", -1) or -1),
+                        "score": float(payload.get("score", 0.0) or 0.0),
+                        "generated_at": payload.get("generated_at"),
+                        "report_path": payload.get("report_html") or payload.get("report_dir"),
+                    }
+                )
+
+        for status_name in ("OK", "WARN", "ALERT", "UNKNOWN"):
+            self.drift_status_gauge.labels(status=status_name).set(1.0 if snapshot["status"] == status_name else 0.0)
+        self.drift_score_gauge.set(float(snapshot["score"]))
+        self.drift_status_code_gauge.set(float(snapshot["status_code"]))
+
+        if snapshot["generated_at"]:
+            try:
+                self.drift_report_timestamp.set(
+                    datetime.fromisoformat(str(snapshot["generated_at"])).timestamp()
+                )
+            except Exception:
+                self.drift_report_timestamp.set(datetime.now(timezone.utc).timestamp())
+        else:
+            self.drift_report_timestamp.set(0.0)
+
+        return snapshot
 
     def _refresh_prometheus_snapshot(self) -> None:
         success_rate = (
@@ -164,7 +252,9 @@ class PredictionMetrics:
         log_entry.update(payload_stats)
 
         try:
-            with open(PREDICTIONS_LOG, "a", encoding="utf-8") as file_handle:
+            log_path = get_predictions_log_path()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_path, "a", encoding="utf-8") as file_handle:
                 file_handle.write(json.dumps(log_entry) + "\n")
         except Exception as e:  # pragma: no cover - logging must not break inference
             logger.error(f"Failed to write prediction log: {e}")
@@ -184,7 +274,9 @@ class PredictionMetrics:
         }
 
         try:
-            with open(PREDICTIONS_LOG, "a", encoding="utf-8") as file_handle:
+            log_path = get_predictions_log_path()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_path, "a", encoding="utf-8") as file_handle:
                 file_handle.write(json.dumps(log_entry) + "\n")
         except Exception as e:  # pragma: no cover - logging must not break inference
             logger.error(f"Failed to write error log: {e}")
@@ -207,6 +299,7 @@ class PredictionMetrics:
                 if self.successful_requests > 0
                 else 0.0
             )
+            drift_snapshot = self._refresh_drift_snapshot()
             positive_rate = (
                 self.predictions_by_label.get("tumor", 0) / self.successful_requests * 100
                 if self.successful_requests > 0
@@ -231,10 +324,12 @@ class PredictionMetrics:
                 "average_risk_score": avg_risk_score,
                 "predictions_by_label": dict(self.predictions_by_label),
                 "models_used": dict(self.models_used),
+                "drift": drift_snapshot,
             }
 
     def prometheus_metrics(self) -> str:
         """Return the Prometheus exposition format for the current registry."""
+        self._refresh_drift_snapshot()
         return generate_latest(self._registry).decode("utf-8")
 
     @property

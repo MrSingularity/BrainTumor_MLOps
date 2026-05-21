@@ -40,14 +40,24 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    """Validate environment on startup."""
+    """Validate environment on startup without hard-failing on missing artifacts."""
     try:
         get_normalization_stats()
+    except FileNotFoundError as exc:
+        logger.warning("Startup: normalization stats unavailable: %s", exc)
+    except Exception as exc:
+        logger.warning("Startup: normalization stats check failed: %s", exc)
+
+    try:
         available = get_available_checkpoints()
-        logger.info(f"✓ Startup: Found {len(available)} checkpoints: {available}")
-    except Exception as e:
-        logger.error(f"✗ Startup failed: {e}")
-        raise
+    except Exception as exc:
+        logger.warning("Startup: checkpoint discovery failed: %s", exc)
+        available = []
+
+    if available:
+        logger.info("Startup: found %d checkpoints: %s", len(available), available)
+    else:
+        logger.warning("Startup: no model checkpoints found; /models and /predict may be unavailable")
 
 
 @app.get("/health", response_model=HealthResponse)

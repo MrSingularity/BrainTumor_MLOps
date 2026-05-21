@@ -22,6 +22,7 @@ dependencies = [
     "wandb>=0.26.1",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
+    "evidently>=0.6.7",
     "dvc>=3.67.1",
     "dvc-s3>=3.3.0",
     "anyio>=4.13.0",

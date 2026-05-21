@@ -13,6 +13,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+import json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -20,6 +21,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from brain_tumor_mlops.api.logs_viewer import build_drift_summary, load_logs, summarize_logs
+from brain_tumor_mlops.monitoring.drift_job import get_status_file
 
 
 OPS_CSS = """
@@ -118,32 +120,30 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    # (Drift status card is shown after the model mix and chart)
+
     if not logs:
         st.info("No prediction logs found yet. Run the main app and generate a few predictions first.")
         return
 
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3 = st.columns(3)
     with m1:
         st.metric("Predictions", f"{summary['total_events']}")
     with m2:
         st.metric("Success Rate", f"{summary['success_rate']:.1f}%")
     with m3:
         st.metric("Positive Rate", f"{summary['positive_prediction_rate']:.1f}%")
-    with m4:
-        st.metric("Avg Latency", f"{summary['average_latency_ms']:.0f} ms")
-
+   
+    # Small per-drift indicators (keep deltas and current window in the top row;
+    # the full drift-status card is shown after the model mix)
     d1, d2, d3 = st.columns(3)
     with d1:
-        st.metric("Drift Score", f"{drift['drift_score']:.3f}")
+        st.metric("Avg Latency", f"{summary['average_latency_ms']:.0f} ms")
+
     with d2:
         st.metric("Positive Delta", f"{drift['positive_rate_delta']:+.1f} pts")
     with d3:
         st.metric("Current Window", f"{drift['current_events']}")
-
-    st.progress(
-        min(max(float(drift['drift_score']), 0.0), 1.0),
-        text=f"Operational drift: {drift['drift_score']:.3f}",
-    )
 
     mix_rows: list[dict[str, Any]] = []
     for model_name, count in summary["predictions_by_model"].items():
@@ -191,6 +191,64 @@ def main() -> None:
             for text in autotexts:
                 text.set_color("#eef4fb")
             st.pyplot(fig, use_container_width=True)
+
+    # --- Drift status card lives after the model mix and chart ---
+    # Load persistent drift status (written by the scheduled drift job)
+    status_path = Path(get_status_file())
+    drift_status: dict | None = None
+    if status_path.exists():
+        try:
+            drift_status = json.loads(status_path.read_text(encoding="utf-8"))
+        except Exception:
+            drift_status = None
+
+    st.markdown("<div class='ops-header'>Drift status</div>", unsafe_allow_html=True)
+    if not drift_status:
+        # Fallback to operational summary produced from recent logs
+        st.info("Drift status: no scheduled report found. Showing live operational summary below.")
+        st.json(drift)
+    else:
+        status = drift_status.get("status", "UNKNOWN")
+        score = float(drift_status.get("score", 0.0))
+        generated_at = drift_status.get("generated_at", "")
+        report_html = drift_status.get("report_html", "")
+        confidence_delta = drift_status.get("confidence_delta")
+        positive_rate_delta = drift_status.get("positive_rate_delta")
+        latency_delta_ms = drift_status.get("latency_delta_ms")
+
+        color_map = {"OK": "#22c55e", "WARN": "#f59e0b", "ALERT": "#ef4444", "UNKNOWN": "#94a3b8"}
+        badge_color = color_map.get(status, "#94a3b8")
+
+        cols = st.columns([2, 4, 3])
+        with cols[0]:
+            st.markdown(
+                f"<div style='background:{badge_color};color:#fff;padding:0.6rem;border-radius:6px;text-align:center;font-weight:600'>{status}</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption(f"Updated: {generated_at}")
+        with cols[1]:
+            st.progress(min(max(score, 0.0), 1.0), text=f"Drift score: {score:.3f}")
+            if report_html:
+                try:
+                    p = Path(report_html)
+                    if p.exists():
+                        # clickable file:// link and a download button for the HTML report
+                        try:
+                            st.markdown(f"[Open latest report]({p.as_uri()})")
+                        except Exception:
+                            st.markdown(f"Latest report path: {report_html}")
+                        with open(p, "rb") as fh:
+                            data = fh.read()
+                        st.download_button("Download latest report", data, file_name=p.name, mime="text/html")
+                    else:
+                        st.markdown("Latest report: unavailable")
+                except Exception:
+                    st.markdown("Latest report: unavailable")
+        with cols[2]:
+            st.write("**Deltas**")
+            st.write(f"Confidence: {confidence_delta if confidence_delta is not None else 'N/A'}")
+            st.write(f"Positive rate: {positive_rate_delta if positive_rate_delta is not None else 'N/A'}")
+            st.write(f"Latency (ms): {latency_delta_ms if latency_delta_ms is not None else 'N/A'}")
 
     st.markdown("<div class='ops-header'>Recent events</div>", unsafe_allow_html=True)
     # Build a tidy DataFrame for events and show a styled table with ticks/crosses

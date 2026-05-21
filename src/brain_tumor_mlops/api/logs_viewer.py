@@ -9,10 +9,29 @@ from statistics import mean
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 LOGS_FILE = PROJECT_ROOT / "data" / "logs" / "predictions.jsonl"
+TEST_CHECKPOINT_NAMES = {"missing.pt", "nonexistent.pt"}
+TEST_ERROR_PREFIXES = (
+    "Invalid base64",
+    "Empty image data",
+    "Image too small",
+)
 
 
-def load_logs() -> list[dict]:
-    """Load all prediction logs from JSONL file."""
+def _is_test_noise(log: dict) -> bool:
+    """Return True for synthetic test failures that should not dominate ops views."""
+    checkpoint_name = str(log.get("checkpoint_name", ""))
+    error_message = str(log.get("error", ""))
+    if checkpoint_name in TEST_CHECKPOINT_NAMES:
+        return True
+    return any(error_message.startswith(prefix) for prefix in TEST_ERROR_PREFIXES)
+
+
+def load_logs(include_test_noise: bool = False) -> list[dict]:
+    """Load prediction logs from JSONL file.
+
+    By default, synthetic failures from the test suite are excluded so the ops
+    dashboard stays focused on real application activity.
+    """
     if not LOGS_FILE.exists():
         return []
     
@@ -24,7 +43,9 @@ def load_logs() -> list[dict]:
                     logs.append(json.loads(line))
                 except json.JSONDecodeError:
                     pass
-    return logs
+    if include_test_noise:
+        return logs
+    return [log for log in logs if not _is_test_noise(log)]
 
 
 def summarize_logs(logs: list[dict] | None = None) -> dict:
@@ -60,22 +81,32 @@ def summarize_logs(logs: list[dict] | None = None) -> dict:
 
 
 def build_drift_summary(logs: list[dict] | None = None) -> dict:
-    """Build a simple drift summary by comparing early and recent logs."""
+    """Build a drift summary by comparing recent and previous log windows."""
     entries = logs if logs is not None else load_logs()
     if not entries:
         return {
             "total_events": 0,
+            "window_size": 0,
             "reference_positive_rate": 0.0,
             "current_positive_rate": 0.0,
+            "reference_failure_rate": 0.0,
+            "current_failure_rate": 0.0,
             "positive_rate_delta": 0.0,
+            "failure_rate_delta": 0.0,
             "confidence_delta": 0.0,
             "latency_delta_ms": 0.0,
             "drift_score": 0.0,
         }
 
-    midpoint = max(len(entries) // 2, 1)
-    reference = [log for log in entries[:midpoint] if "label" in log]
-    current = [log for log in entries[midpoint:] if "label" in log] or reference
+    window_size = max(2, len(entries) // 4)
+    window_size = min(window_size, max(len(entries) // 2, 1))
+    reference_window = entries[:-window_size] or entries[:window_size]
+    current_window = entries[-window_size:]
+
+    reference = [log for log in reference_window if "label" in log]
+    current = [log for log in current_window if "label" in log] or reference
+    reference_failures = [log for log in reference_window if "error" in log]
+    current_failures = [log for log in current_window if "error" in log]
 
     def _mean(values: list[float]) -> float:
         return sum(values) / len(values) if values else 0.0
@@ -87,24 +118,45 @@ def build_drift_summary(logs: list[dict] | None = None) -> dict:
             else 0.0
         )
 
+    def _failure_rate(rows: list[dict]) -> float:
+        return sum(1 for row in rows if "error" in row) / len(rows) * 100 if rows else 0.0
+
     reference_confidences = [float(row.get("confidence", 0.0)) for row in reference]
     current_confidences = [float(row.get("confidence", 0.0)) for row in current]
     reference_latencies = [float(row.get("latency_ms", 0.0)) for row in reference]
     current_latencies = [float(row.get("latency_ms", 0.0)) for row in current]
     reference_positive_rate = _positive_rate(reference)
     current_positive_rate = _positive_rate(current)
+    reference_failure_rate = _failure_rate(reference_window)
+    current_failure_rate = _failure_rate(current_window)
     confidence_delta = abs(_mean(current_confidences) - _mean(reference_confidences))
     latency_delta_ms = abs(_mean(current_latencies) - _mean(reference_latencies))
     positive_rate_delta = current_positive_rate - reference_positive_rate
-    drift_score = min(1.0, confidence_delta * 2.0 + abs(positive_rate_delta) / 100.0 + latency_delta_ms / 1000.0)
+    failure_rate_delta = current_failure_rate - reference_failure_rate
+
+    confidence_component = min(confidence_delta / 0.25, 1.0)
+    latency_component = min(latency_delta_ms / 250.0, 1.0)
+    positive_component = min(abs(positive_rate_delta) / 100.0, 1.0)
+    failure_component = min(abs(failure_rate_delta) / 100.0, 1.0)
+    drift_score = min(
+        1.0,
+        0.35 * confidence_component
+        + 0.30 * latency_component
+        + 0.20 * positive_component
+        + 0.15 * failure_component,
+    )
 
     return {
         "total_events": len(entries),
-        "reference_events": len(reference),
-        "current_events": len(current),
+        "window_size": window_size,
+        "reference_events": len(reference_window),
+        "current_events": len(current_window),
         "reference_positive_rate": reference_positive_rate,
         "current_positive_rate": current_positive_rate,
         "positive_rate_delta": positive_rate_delta,
+        "reference_failure_rate": reference_failure_rate,
+        "current_failure_rate": current_failure_rate,
+        "failure_rate_delta": failure_rate_delta,
         "confidence_delta": confidence_delta,
         "latency_delta_ms": latency_delta_ms,
         "drift_score": drift_score,
