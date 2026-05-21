@@ -7,10 +7,10 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from mlops_project.models.baseline import StatsLogisticRegression
-from mlops_project.models.simple_cnn import SimpleCNN
-from mlops_project.models.transfer import ResNet50Transfer
-from mlops_project.models.unet_classifier import UNetClassifier
+from brain_tumor_mlops.models.baseline import StatsLogisticRegression
+from brain_tumor_mlops.models.simple_cnn import SimpleCNN
+from brain_tumor_mlops.models.transfer import ResNet50Transfer
+from brain_tumor_mlops.models.unet_classifier import UNetClassifier
 
 MODEL_NAMES = ("baseline", "simple_cnn", "unet_classifier", "resnet50_transfer")
 

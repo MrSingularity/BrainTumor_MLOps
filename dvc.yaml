@@ -1,10 +1,10 @@
 stages:
   prepare_data:
-    cmd: uv run python -m mlops_project.data.prepare
+    cmd: uv run python -m brain_tumor_mlops.data.prepare
     deps:
       - data/raw/kaggle_3m
-      - src/mlops_project/data/prepare.py
-      - src/mlops_project/data/splits.py
+      - src/brain_tumor_mlops/data/prepare.py
+      - src/brain_tumor_mlops/data/splits.py
     outs:
       - data/processed/slice_index.parquet
       - data/processed/norm_stats.json

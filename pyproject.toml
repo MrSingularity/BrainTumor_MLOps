@@ -1,7 +1,7 @@
 [project]
-name = "mlops-project"
+name = "brain-tumor-mlops"
 version = "0.1.0"
-description = "Add your description here"
+description = "End-to-end MLOps pipeline for brain tumor detection on MRI (LGG)."
 readme = "README.md"
 authors = [
     { name = "nathan massicot", email = "nathan.massicot@efrei.net" }
@@ -13,18 +13,31 @@ dependencies = [
     "kaggle>=2.1.0",
     "omegaconf>=2.3.0",
     "pyarrow>=24.0.0",
+    "fastparquet>=2024.5.0",
     "python-dotenv>=1.2.2",
     "streamlit>=1.45.1",
     "scikit-learn>=1.8.0",
-    "torch>=2.11.0",
-    "torchvision>=0.26.0",
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
     "wandb>=0.26.1",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
 ]
 
 [project.scripts]
-mlops-project = "mlops_project:main"
+brain-tumor-mlops = "brain_tumor_mlops:main"
+
+# Cross-platform PyTorch: macOS uses default PyPI (MPS-enabled wheels);
+# Linux/Windows pull CUDA-enabled wheels from the PyTorch cu121 index so
+# `uv sync` produces a GPU-ready env on the sweep workstation automatically.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu121", marker = "sys_platform != 'darwin'" }]
+torchvision = [{ index = "pytorch-cu121", marker = "sys_platform != 'darwin'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
@@ -32,13 +45,22 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+<<<<<<< HEAD
     "anyio>=4.13.0",
     "httpx>=0.28.1",
+=======
+    "dvc>=3.67.1",
+    "dvc-s3>=3.3.0",
+>>>>>>> origin/main
     "ipykernel>=7.2.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
-    "pandas>=3.0.2",
+    # Pinned <3 because pandas 3.0 makes ArrowStringArray the default backing
+    # for string columns, which segfaults on Windows when used alongside
+    # torch+CUDA (pyarrow DLL conflict). pandas 2.x stores strings as object
+    # dtype and avoids the issue entirely.
+    "pandas>=2.2,<3",
     "pillow>=12.2.0",
     "pre-commit>=3.7,<4.0",
     "pytest>=9.0.3",

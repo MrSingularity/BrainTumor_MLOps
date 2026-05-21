@@ -1,0 +1,55 @@
+# W&B Sweep — resnet50_transfer + unet_classifier
+#
+# Bayesian optimisation over learning rate / weight decay / batch size,
+# across the two best-performing architectures.
+#
+# Metric: val/sensitivity (medical context — false negatives = missed tumours).
+# Early termination: Hyperband kills unpromising runs after 3 epochs.
+#
+# Launch:
+#   uv run wandb sweep configs/sweeps/resnet_unet.yaml
+#   uv run wandb agent MLopsTeamMsC/brain-tumor-classification/<sweep_id> --count 20
+#
+# See docs/SWEEP.md for the full procedure (especially the CUDA workstation setup).
+
+program: src/brain_tumor_mlops/training/train.py
+project: brain-tumor-classification
+entity: MLopsTeamMsC
+
+method: bayes
+
+metric:
+  name: val/sensitivity
+  goal: maximize
+
+early_terminate:
+  type: hyperband
+  min_iter: 3      # let every run see at least 3 epochs before considering kill
+  eta: 2           # halve survivor count each bracket
+
+parameters:
+  model:
+    values: [resnet50_transfer, unet_classifier]
+  training.lr:
+    distribution: log_uniform_values
+    min: 1.0e-5
+    max: 1.0e-2
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 1.0e-6
+    max: 1.0e-2
+  data.batch_size:
+    values: [16, 32, 64]
+  training.epochs:
+    value: 15
+
+# Hydra wants `key=value`, W&B sends `--key=value`. ${args_no_hyphens} strips
+# the `--` so Hydra parses each sweep param as a config override.
+command:
+  - ${env}
+  - uv
+  - run
+  - python
+  - -m
+  - brain_tumor_mlops.training.train
+  - ${args_no_hyphens}

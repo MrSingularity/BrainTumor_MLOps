@@ -89,7 +89,7 @@ The model weights come automatically with `git clone` (via Git LFS). The process
 | **Prepared dataset** (`data/processed/`) | Ask a teammate to share `data/processed/` (~5 MB, zips well) — drop it in place | `uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/lgg-mri-prepared:latest --root data/processed` |
 | **Trained model weights** (`models/*.pt`, ~115 MB total) | Already pulled by `git clone` thanks to **Git LFS** — nothing to do. Run `git lfs pull` if you cloned without LFS installed. | `uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-{name}:v0 --root models` |
 
-> If you don't want any download at all and have a GPU/MPS handy: retrain everything in ~30 min with `uv run python -m mlops_project.training.train --multirun model=baseline,simple_cnn,unet_classifier,resnet50_transfer`.
+> If you don't want any download at all and have a GPU/MPS handy: retrain everything in ~30 min with `uv run python -m brain_tumor_mlops.training.train --multirun model=baseline,simple_cnn,unet_classifier,resnet50_transfer`.
 
 **Sanity check** — after `git clone`, confirm the LFS files came through:
 
@@ -106,9 +106,9 @@ Once a `.pt` checkpoint is in `models/`, three lines load it back into a ready-t
 
 ```python
 import torch
-from mlops_project.models.factory import load_checkpoint
-from mlops_project.data.dataset import BrainMRIDataset, load_dataset_artifacts
-from mlops_project.data.transforms import eval_transform
+from brain_tumor_mlops.models.factory import load_checkpoint
+from brain_tumor_mlops.data.dataset import BrainMRIDataset, load_dataset_artifacts
+from brain_tumor_mlops.data.transforms import eval_transform
 
 # 1. Rebuild model + load weights (architecture is read from the checkpoint)
 model, ckpt = load_checkpoint("models/resnet50_transfer.pt", device="cpu")
@@ -152,17 +152,17 @@ Green → you're ready to train.
 
 ```bash
 # Default model (simple_cnn, 5 epochs, batch 32)
-uv run python -m mlops_project.training.train
+uv run python -m brain_tumor_mlops.training.train
 
 # Pick one of the 4 architectures
-uv run python -m mlops_project.training.train model=resnet50_transfer
-uv run python -m mlops_project.training.train model=unet_classifier
+uv run python -m brain_tumor_mlops.training.train model=resnet50_transfer
+uv run python -m brain_tumor_mlops.training.train model=unet_classifier
 
 # Override hyperparameters from the CLI (Hydra syntax)
-uv run python -m mlops_project.training.train model=resnet50_transfer training.epochs=20 training.lr=1e-4 data.batch_size=64
+uv run python -m brain_tumor_mlops.training.train model=resnet50_transfer training.epochs=20 training.lr=1e-4 data.batch_size=64
 
 # Train all 4 models in a row (multirun)
-uv run python -m mlops_project.training.train --multirun \
+uv run python -m brain_tumor_mlops.training.train --multirun \
     model=baseline,simple_cnn,unet_classifier,resnet50_transfer training.epochs=10
 ```
 
@@ -175,7 +175,7 @@ Every run:
 ### Disable W&B for a single run
 
 ```bash
-uv run python -m mlops_project.training.train model=simple_cnn no_wandb=true
+uv run python -m brain_tumor_mlops.training.train model=simple_cnn no_wandb=true
 ```
 
 ### Tests, lint, format
@@ -190,10 +190,61 @@ uv run ruff format .                         # format
 ### Regenerate the dataset (after a raw-data change)
 
 ```bash
-uv run python -m mlops_project.data.prepare
+uv run python -m brain_tumor_mlops.data.prepare
 ```
 
 Rebuilds `data/processed/slice_index.parquet` + `norm_stats.json` and uploads a new version of the `lgg-mri-prepared` artifact.
+
+Prefer `uv run dvc repro` over the raw command — it re-runs the stage **only if** raw data or `prepare.py` / `splits.py` actually changed, and updates `dvc.lock` so the new output hashes are versioned alongside the code.
+
+### Data versioning (DVC)
+
+Raw payload stays out of Git: only the lightweight `data/raw/kaggle_3m.dvc` pointer file is committed (~120 B). The real ~1 GB dataset lives in the DVC cache, mirrored to the configured remote.
+
+```bash
+uv run dvc status            # what is out of sync between code, cache, and remote
+uv run dvc pull              # fetch raw + processed data from the remote
+uv run dvc repro             # re-run the prepare_data stage if its inputs changed
+uv run dvc push              # upload new versions of the data to the remote
+```
+
+**Remote backend: Google Drive.** The remote `gdrive` is declared in `.dvc/config` but its URL still contains the placeholder `gdrive://REPLACE_WITH_FOLDER_ID` until one teammate finalises the shared folder.
+
+**First-time setup (do this once, by one person):**
+
+1. Create a folder on Google Drive — e.g. `brain-tumor-mlops-dvc`. Share it with all 4 teammates with **Editor** access.
+2. Copy the folder ID from the URL `https://drive.google.com/drive/folders/<FOLDER_ID>`.
+3. Update the remote and commit the change:
+   ```bash
+   uv run dvc remote modify gdrive url gdrive://<FOLDER_ID>
+   git add .dvc/config && git commit -m "chore(dvc): wire up shared Google Drive remote"
+   ```
+4. Push the cache to GDrive — the first push opens an OAuth flow in the browser:
+   ```bash
+   uv run dvc push
+   ```
+   The OAuth token is cached in `~/.cache/pydrive2fs/` (per-user, never committed).
+
+**For every other teammate (after pulling the commit above):**
+
+```bash
+uv run dvc pull    # browser opens once for OAuth, then fetches data
+```
+
+**Alternative backends** (only relevant if we move off Drive later — e.g. quota issues, CI flakiness):
+
+```bash
+# S3 / MinIO
+uv add --dev "dvc[s3]"
+uv run dvc remote modify gdrive url s3://<bucket>/<path>
+# then set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (+ AWS_ENDPOINT_URL for MinIO) in .env
+
+# SSH on a shared BFH machine
+uv add --dev "dvc[ssh]"
+uv run dvc remote modify gdrive url ssh://user@host/path/to/dvcstore
+```
+
+See `.env.example` for the credential layout of the alternatives.
 
 ---
 
@@ -215,7 +266,7 @@ BrainTumor_MLOps/
 ├── models/                   # gitignored, *.pt pulled from W&B Artifacts
 ├── notebooks/
 │   └── 01_eda.ipynb          # exploratory data analysis (20 visualisations)
-├── src/mlops_project/
+├── src/brain_tumor_mlops/
 │   ├── data/                 # splits, Dataset, transforms, prep
 │   ├── models/               # 4 architectures + factory
 │   ├── training/             # train loop, metrics
@@ -230,7 +281,7 @@ BrainTumor_MLOps/
 └── README.md
 ```
 
-**Rule**: all production code lives in `src/mlops_project/`. Notebooks are for exploration only — never import from a notebook into production code.
+**Rule**: all production code lives in `src/brain_tumor_mlops/`. Notebooks are for exploration only — never import from a notebook into production code.
 
 ---
 
@@ -281,9 +332,9 @@ chore(deps): bump pytorch to 2.4.0
 |---|---|
 | `WANDB_API_KEY not set` | You haven't configured `.env`. Redo step 2. |
 | `Could not find project brain-tumor-classification` | `WANDB_ENTITY` is missing or wrong in `.env`. Set it to `nathan2massicot-berner-fachhochschule`. |
-| `mlops_project` imports fail | You haven't run `uv sync`. The package is installed in editable mode from `pyproject.toml`. |
+| `brain_tumor_mlops` imports fail | You haven't run `uv sync`. The package is installed in editable mode from `pyproject.toml`. |
 | First epoch endless on Mac (Apple Silicon) | Normal: MPS compiles its Metal kernel cache on the first batch (15–25 min). Subsequent epochs: ~25 s. **Don't ctrl-C.** |
-| Data tests fail with `slice_index.parquet missing` | Run `uv run python -m mlops_project.data.prepare` once. |
+| Data tests fail with `slice_index.parquet missing` | Run `uv run python -m brain_tumor_mlops.data.prepare` once. |
 | `models/{name}.pt missing` or shows up as a tiny text file (~130 bytes) | You cloned without Git LFS installed. Run `brew install git-lfs && git lfs install && git lfs pull` from inside the repo. |
 
 For anything else, ping the team on Discord/Slack, or open a GitHub issue.

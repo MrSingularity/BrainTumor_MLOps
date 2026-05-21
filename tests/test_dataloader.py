@@ -12,8 +12,8 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from mlops_project.data.dataset import BrainMRIDataset, load_dataset_artifacts
-from mlops_project.data.transforms import eval_transform, train_transform
+from brain_tumor_mlops.data.dataset import BrainMRIDataset, load_dataset_artifacts
+from brain_tumor_mlops.data.transforms import eval_transform, train_transform
 
 PROCESSED = Path(__file__).resolve().parents[1] / "data" / "processed"
 
@@ -21,7 +21,7 @@ PROCESSED = Path(__file__).resolve().parents[1] / "data" / "processed"
 @pytest.fixture(scope="module")
 def artifacts():
     if not (PROCESSED / "slice_index.parquet").exists():
-        pytest.skip("run `python -m mlops_project.data.prepare` first")
+        pytest.skip("run `python -m brain_tumor_mlops.data.prepare` first")
     return load_dataset_artifacts(PROCESSED)
 
 

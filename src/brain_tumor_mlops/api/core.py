@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from mlops_project.models.factory import load_checkpoint
+from brain_tumor_mlops.models.factory import load_checkpoint
 from .metrics import metrics
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def get_normalization_stats() -> tuple[np.ndarray, np.ndarray]:
     if not PROCESSED_STATS_PATH.exists():
         raise FileNotFoundError(
             f"Missing {PROCESSED_STATS_PATH}. "
-            "Run `python -m mlops_project.data.prepare` first."
+            "Run `python -m brain_tumor_mlops.data.prepare` first."
         )
     payload = json.loads(PROCESSED_STATS_PATH.read_text())
     mean = np.array(payload["mean"], dtype=np.float32).reshape(3, 1, 1)

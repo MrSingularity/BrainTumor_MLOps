@@ -1,5 +1,5 @@
 # Root Hydra config. Override any field on the CLI:
-#   uv run python -m mlops_project.training.train model=resnet50 training.epochs=10
+#   uv run python -m brain_tumor_mlops.training.train model=resnet50 training.epochs=10
 
 defaults:
   - model: simple_cnn        # default model — CLI override: model=resnet50

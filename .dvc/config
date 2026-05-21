@@ -1,0 +1,6 @@
+[core]
+    analytics = false
+    remote = b2
+['remote "b2"']
+    url = s3://brain-tumor-mlops-nm/dvcstore
+    endpointurl = https://s3.eu-central-003.backblazeb2.com

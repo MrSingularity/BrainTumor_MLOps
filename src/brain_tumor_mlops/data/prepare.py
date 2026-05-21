@@ -14,7 +14,7 @@ tracks the same files for content-addressed local versioning. The pair is
 intentional: W&B for run-level lineage, DVC for raw bytes.
 
 Run:
-    uv run python -m mlops_project.data.prepare
+    uv run python -m brain_tumor_mlops.data.prepare
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
-from mlops_project.data.splits import attach_split_to_slices, make_patient_split
-from mlops_project.utils.wandb_logging import log_artifact, wandb_run
+from brain_tumor_mlops.data.splits import attach_split_to_slices, make_patient_split
+from brain_tumor_mlops.utils.wandb_logging import log_artifact, wandb_run
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
@@ -130,10 +130,15 @@ def main() -> None:
     print("→ per-channel normalisation stats (train only) ...")
     stats = _compute_norm_stats(index)
 
+    # CSV is the primary output — parquet via pyarrow/fastparquet crashes
+    # on Windows when combined with torch+CUDA. CSV has zero native deps.
+    csv_path = PROCESSED_DIR / "slice_index.csv"
     index_path = PROCESSED_DIR / "slice_index.parquet"
     stats_path = PROCESSED_DIR / "norm_stats.json"
-    index.to_parquet(index_path, index=False)
+    index.to_csv(csv_path, index=False)
+    index.to_parquet(index_path, index=False, engine="fastparquet")
     stats_path.write_text(json.dumps(stats, indent=2))
+    print(f"→ wrote {csv_path.relative_to(PROJECT_ROOT)} ({csv_path.stat().st_size/1024:.1f} KB)")
     print(f"→ wrote {index_path.relative_to(PROJECT_ROOT)} ({index_path.stat().st_size/1024:.1f} KB)")
     print(f"→ wrote {stats_path.relative_to(PROJECT_ROOT)}")
 

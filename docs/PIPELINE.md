@@ -20,7 +20,7 @@ We *do not* aim for state-of-the-art clinical accuracy — the LGG cohort is too
 ## 2. What was built — file map
 
 ```
-src/mlops_project/
+src/brain_tumor_mlops/
 ├── data/
 │   ├── splits.py          # Patient-level stratified split (#16)
 │   ├── dataset.py         # PyTorch Dataset + normalisation (#17)
@@ -80,7 +80,7 @@ Empirical findings from the EDA notebook (`notebooks/01_eda.ipynb`):
 ### 3.2 Patient-level split (`splits.py`)
 
 ```python
-from mlops_project.data.splits import make_patient_split
+from brain_tumor_mlops.data.splits import make_patient_split
 split = make_patient_split(meta)        # 70/15/15, seed=42
 split.assert_disjoint()
 ```
@@ -100,7 +100,7 @@ Every property above is asserted in `tests/test_splits.py` (12 tests, all green)
 Run once after every change to the raw data:
 
 ```bash
-uv run python -m mlops_project.data.prepare
+uv run python -m brain_tumor_mlops.data.prepare
 ```
 
 Produces in `data/processed/`:
@@ -119,7 +119,7 @@ The script then uploads both files as a single W&B Artifact called `lgg-mri-prep
 ### 3.4 Dataset class (`dataset.py`)
 
 ```python
-from mlops_project.data.dataset import BrainMRIDataset, load_dataset_artifacts
+from brain_tumor_mlops.data.dataset import BrainMRIDataset, load_dataset_artifacts
 index, stats = load_dataset_artifacts("data/processed")
 ds = BrainMRIDataset(index, stats, split="train", transform=train_transform())
 ```
@@ -158,7 +158,7 @@ Four architectures, picked to span "clearly insufficient" → "literature-standa
 Built via the factory:
 
 ```python
-from mlops_project.models.factory import build_model
+from brain_tumor_mlops.models.factory import build_model
 model = build_model("resnet50_transfer", freeze_backbone=True)
 ```
 
@@ -179,16 +179,16 @@ Driven by Hydra (#23). Defaults live in `configs/`. Override anything on the CLI
 
 ```bash
 # Train the default model (simple_cnn, 5 epochs, batch 32)
-uv run python -m mlops_project.training.train
+uv run python -m brain_tumor_mlops.training.train
 
 # Pick a different architecture
-uv run python -m mlops_project.training.train model=resnet50_transfer
+uv run python -m brain_tumor_mlops.training.train model=resnet50_transfer
 
 # Override hyperparameters
-uv run python -m mlops_project.training.train model=unet_classifier training.epochs=20 training.lr=1e-4
+uv run python -m brain_tumor_mlops.training.train model=unet_classifier training.epochs=20 training.lr=1e-4
 
 # Train all four models in one go (Hydra multirun)
-uv run python -m mlops_project.training.train --multirun \
+uv run python -m brain_tumor_mlops.training.train --multirun \
     model=baseline,simple_cnn,unet_classifier,resnet50_transfer
 ```
 
@@ -255,13 +255,13 @@ uv sync
 cp .env.example .env       # then paste your WANDB_API_KEY (and WANDB_ENTITY for the Team)
 
 # 2. Prepare the dataset (~30 s, scans 3 929 TIFFs, uploads W&B Artifact)
-uv run python -m mlops_project.data.prepare
+uv run python -m brain_tumor_mlops.data.prepare
 
 # 3. Train one model (Hydra)
-uv run python -m mlops_project.training.train model=resnet50_transfer training.epochs=5
+uv run python -m brain_tumor_mlops.training.train model=resnet50_transfer training.epochs=5
 
 # 3-bis. Train all four in a single multirun
-uv run python -m mlops_project.training.train --multirun \
+uv run python -m brain_tumor_mlops.training.train --multirun \
     model=baseline,simple_cnn,unet_classifier,resnet50_transfer training.epochs=5
 
 # 4. View results
@@ -275,9 +275,9 @@ uv run pytest tests/ -v
 To skip W&B (e.g. on a teammate's machine without access):
 
 ```bash
-uv run python -m mlops_project.training.train model=simple_cnn no_wandb=true
+uv run python -m brain_tumor_mlops.training.train model=simple_cnn no_wandb=true
 # or
-WANDB_MODE=disabled uv run python -m mlops_project.training.train model=simple_cnn
+WANDB_MODE=disabled uv run python -m brain_tumor_mlops.training.train model=simple_cnn
 ```
 
 ---
@@ -307,16 +307,16 @@ WANDB_MODE=disabled uv run python -m mlops_project.training.train model=simple_c
 
 | GH Issue | Status | Files added/changed |
 |---:|---|---|
-| #9  | ✅ done | `.env`, `src/mlops_project/utils/wandb_logging.py` |
+| #9  | ✅ done | `.env`, `src/brain_tumor_mlops/utils/wandb_logging.py` |
 | #14 | ✅ done | `notebooks/01_eda.ipynb` (20 visualisations) |
 | #15 | ✅ done | `notebooks/01_eda.ipynb` |
-| #16 | ✅ done | `src/mlops_project/data/splits.py`, `tests/test_splits.py` |
-| #17 | ✅ done | `src/mlops_project/data/dataset.py`, `src/mlops_project/data/prepare.py`, `tests/test_dataset.py`, `dvc.yaml` |
-| #18 | ✅ done | `src/mlops_project/data/transforms.py` |
+| #16 | ✅ done | `src/brain_tumor_mlops/data/splits.py`, `tests/test_splits.py` |
+| #17 | ✅ done | `src/brain_tumor_mlops/data/dataset.py`, `src/brain_tumor_mlops/data/prepare.py`, `tests/test_dataset.py`, `dvc.yaml` |
+| #18 | ✅ done | `src/brain_tumor_mlops/data/transforms.py` |
 | #19 | ✅ done | `tests/test_dataloader.py` |
-| #20 | ✅ done | `src/mlops_project/models/{baseline,simple_cnn,unet_classifier,transfer,factory}.py` |
-| #21 | ✅ done | `src/mlops_project/training/train.py` |
-| #22 | ✅ done | `src/mlops_project/utils/wandb_logging.py` + integration in `train.py` |
+| #20 | ✅ done | `src/brain_tumor_mlops/models/{baseline,simple_cnn,unet_classifier,transfer,factory}.py` |
+| #21 | ✅ done | `src/brain_tumor_mlops/training/train.py` |
+| #22 | ✅ done | `src/brain_tumor_mlops/utils/wandb_logging.py` + integration in `train.py` |
 | #23 | ✅ done | `configs/{config,data/default,training/default,model/*}.yaml` |
 | #24 | ✅ done (5 epochs) | First runs done for all 4 models; production-quality runs (20–50 epochs + scheduler) pending. |
-| #25 | ✅ done | `src/mlops_project/training/metrics.py` |
+| #25 | ✅ done | `src/brain_tumor_mlops/training/metrics.py` |
