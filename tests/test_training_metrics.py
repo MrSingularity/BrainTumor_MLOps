@@ -1,4 +1,4 @@
-"""Tests for mlops_project.training.metrics.
+"""Tests for brain_tumor_mlops.training.metrics.
 
 Covers ClassificationMetrics, classification_metrics(), and dice_coefficient().
 """
@@ -10,7 +10,7 @@ import math
 import numpy as np
 import pytest
 
-from mlops_project.training.metrics import (
+from brain_tumor_mlops.training.metrics import (
     ClassificationMetrics,
     classification_metrics,
     dice_coefficient,

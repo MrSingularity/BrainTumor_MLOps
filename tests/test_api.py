@@ -27,7 +27,7 @@ def ensure_dummy_checkpoints(tmp_path, monkeypatch):
     checkpoint presence behave deterministically in CI.
     """
     # Create the models dir where the application expects it (core.PROJECT_ROOT/models)
-    import mlops_project.api.core as core
+    import brain_tumor_mlops.api.core as core
 
     core_models_dir = core.PROJECT_ROOT / "models"
     core_models_dir.mkdir(parents=True, exist_ok=True)
@@ -37,8 +37,8 @@ def ensure_dummy_checkpoints(tmp_path, monkeypatch):
             p.write_bytes(b"")
 
     # Also ensure the API's startup and core validate paths see available checkpoints
-    monkeypatch.setattr("mlops_project.api.main.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
-    monkeypatch.setattr("mlops_project.api.core.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    monkeypatch.setattr("brain_tumor_mlops.api.main.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    monkeypatch.setattr("brain_tumor_mlops.api.core.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
     yield
 
 

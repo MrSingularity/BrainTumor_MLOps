@@ -12,7 +12,7 @@ from __future__ import annotations
 import albumentations as A
 import numpy as np
 
-from mlops_project.data.transforms import eval_transform, train_transform
+from brain_tumor_mlops.data.transforms import eval_transform, train_transform
 
 # ---------------------------------------------------------------------------
 # Helpers

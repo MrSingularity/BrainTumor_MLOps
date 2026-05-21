@@ -1,4 +1,4 @@
-"""Tests for mlops_project.utils.wandb_logging.
+"""Tests for brain_tumor_mlops.utils.wandb_logging.
 
 All tests run in W&B-disabled mode (no real API calls).
 Covers wandb_enabled(), wandb_run(), and log_artifact() no-op paths.
@@ -6,7 +6,7 @@ Covers wandb_enabled(), wandb_run(), and log_artifact() no-op paths.
 
 from __future__ import annotations
 
-from mlops_project.utils.wandb_logging import log_artifact, wandb_enabled, wandb_run
+from brain_tumor_mlops.utils.wandb_logging import log_artifact, wandb_enabled, wandb_run
 
 # ---------------------------------------------------------------------------
 # wandb_enabled()

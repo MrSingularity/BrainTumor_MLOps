@@ -1,4 +1,4 @@
-"""Tests for mlops_project.data.prepare helper functions.
+"""Tests for brain_tumor_mlops.data.prepare helper functions.
 
 Tests use synthetic TIFF files in tmp_path — no real dataset required.
 Covers _build_slice_index, _annotate_slice, and _compute_norm_stats.
@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 from PIL import Image
 
-from mlops_project.data.prepare import (
+from brain_tumor_mlops.data.prepare import (
     _annotate_slice,
     _build_slice_index,
     _compute_norm_stats,
@@ -52,7 +52,7 @@ def _make_patient_dir(base: Path, patient_id: str, n_slices: int = 3) -> Path:
 
 class TestBuildSliceIndex:
     def test_returns_dataframe(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001")
@@ -60,7 +60,7 @@ class TestBuildSliceIndex:
         assert isinstance(df, pd.DataFrame)
 
     def test_has_required_columns(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001")
@@ -69,7 +69,7 @@ class TestBuildSliceIndex:
             assert col in df.columns
 
     def test_correct_row_count(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=3)
@@ -77,7 +77,7 @@ class TestBuildSliceIndex:
         assert len(df) == 3
 
     def test_multiple_patients(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=2)
@@ -87,7 +87,7 @@ class TestBuildSliceIndex:
         assert df["patient_id"].nunique() == 2
 
     def test_non_tcga_dirs_ignored(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=2)
@@ -96,7 +96,7 @@ class TestBuildSliceIndex:
         assert len(df) == 2
 
     def test_sorted_by_patient_and_slice(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_BB_0002", n_slices=2)
@@ -105,7 +105,7 @@ class TestBuildSliceIndex:
         assert df.iloc[0]["patient_id"] < df.iloc[2]["patient_id"]
 
     def test_image_path_is_string(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=1)
@@ -113,7 +113,7 @@ class TestBuildSliceIndex:
         assert isinstance(df.iloc[0]["image_path"], str)
 
     def test_mask_path_ends_with_mask(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=2)
@@ -123,7 +123,7 @@ class TestBuildSliceIndex:
 
 class TestAnnotateSlice:
     def test_returns_dict_with_required_keys(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=1)
@@ -134,7 +134,7 @@ class TestAnnotateSlice:
         assert "post_eq_flair" in result
 
     def test_tumor_area_is_int(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         _make_patient_dir(tmp_path, "TCGA_AA_0001", n_slices=1)
@@ -143,7 +143,7 @@ class TestAnnotateSlice:
         assert isinstance(result["tumor_area"], int)
 
     def test_empty_mask_gives_zero_tumor_area(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         pdir = tmp_path / "TCGA_AA_0001"
@@ -158,7 +158,7 @@ class TestAnnotateSlice:
         assert result["tumor_area"] == 0
 
     def test_flair_duplicate_detected(self, tmp_path, monkeypatch):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         monkeypatch.setattr(prep, "PROJECT_ROOT", tmp_path)
         pdir = tmp_path / "TCGA_AA_0001"
@@ -190,7 +190,7 @@ class TestComputeNormStats:
         return pd.DataFrame(rows)
 
     def test_returns_dict_with_mean_std(self, tmp_path):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         original_root = prep.PROJECT_ROOT
         prep.PROJECT_ROOT = tmp_path
@@ -203,7 +203,7 @@ class TestComputeNormStats:
         assert "mean" in stats and "std" in stats
 
     def test_mean_has_3_channels(self, tmp_path):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         original_root = prep.PROJECT_ROOT
         prep.PROJECT_ROOT = tmp_path
@@ -217,7 +217,7 @@ class TestComputeNormStats:
         assert len(stats["std"]) == 3
 
     def test_mean_bounded_0_1(self, tmp_path):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         original_root = prep.PROJECT_ROOT
         prep.PROJECT_ROOT = tmp_path
@@ -231,7 +231,7 @@ class TestComputeNormStats:
             assert 0.0 <= v <= 1.0
 
     def test_std_positive(self, tmp_path):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         original_root = prep.PROJECT_ROOT
         prep.PROJECT_ROOT = tmp_path
@@ -250,7 +250,7 @@ class TestComputeNormStats:
             _compute_norm_stats(index, split="train")
 
     def test_n_pixels_is_positive(self, tmp_path):
-        import mlops_project.data.prepare as prep
+        import brain_tumor_mlops.data.prepare as prep
 
         original_root = prep.PROJECT_ROOT
         prep.PROJECT_ROOT = tmp_path

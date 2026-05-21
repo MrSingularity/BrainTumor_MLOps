@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from mlops_project.training.train import _pos_weight_from_train, _resolve_device
+from brain_tumor_mlops.training.train import _pos_weight_from_train, _resolve_device
 
 
 class TestResolveDevice:
