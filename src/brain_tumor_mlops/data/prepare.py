@@ -130,10 +130,15 @@ def main() -> None:
     print("→ per-channel normalisation stats (train only) ...")
     stats = _compute_norm_stats(index)
 
+    # CSV is the primary output — parquet via pyarrow/fastparquet crashes
+    # on Windows when combined with torch+CUDA. CSV has zero native deps.
+    csv_path = PROCESSED_DIR / "slice_index.csv"
     index_path = PROCESSED_DIR / "slice_index.parquet"
     stats_path = PROCESSED_DIR / "norm_stats.json"
+    index.to_csv(csv_path, index=False)
     index.to_parquet(index_path, index=False, engine="fastparquet")
     stats_path.write_text(json.dumps(stats, indent=2))
+    print(f"→ wrote {csv_path.relative_to(PROJECT_ROOT)} ({csv_path.stat().st_size/1024:.1f} KB)")
     print(f"→ wrote {index_path.relative_to(PROJECT_ROOT)} ({index_path.stat().st_size/1024:.1f} KB)")
     print(f"→ wrote {stats_path.relative_to(PROJECT_ROOT)}")
 

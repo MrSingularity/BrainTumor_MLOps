@@ -125,6 +125,9 @@ data/external/*
 !data/processed/*.dvc
 !data/interim/*.dvc
 !data/external/*.dvc
+# slice_index.csv is the Windows-safe (no pyarrow) data index — tracked in git
+# because it's < 1 MB and avoids a DVC pull step on every teammate's machine.
+!data/processed/slice_index.csv
 
 # =============================================================================
 # Model artifacts — checkpoints in models/ are tracked via Git LFS (.pt files
