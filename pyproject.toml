@@ -16,8 +16,8 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "streamlit>=1.45.1",
     "scikit-learn>=1.8.0",
-    "torch>=2.11.0",
-    "torchvision>=0.26.0",
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
     "wandb>=0.26.1",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -25,6 +25,18 @@ dependencies = [
 
 [project.scripts]
 brain-tumor-mlops = "brain_tumor_mlops:main"
+
+# Cross-platform PyTorch: macOS uses default PyPI (MPS-enabled wheels);
+# Linux/Windows pull CUDA-enabled wheels from the PyTorch cu121 index so
+# `uv sync` produces a GPU-ready env on the sweep workstation automatically.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu121", marker = "sys_platform != 'darwin'" }]
+torchvision = [{ index = "pytorch-cu121", marker = "sys_platform != 'darwin'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
