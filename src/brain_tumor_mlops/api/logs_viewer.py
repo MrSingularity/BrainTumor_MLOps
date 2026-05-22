@@ -2,9 +2,8 @@
 
 import json
 import sys
-from datetime import datetime
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 from statistics import mean
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +33,7 @@ def load_logs(include_test_noise: bool = False) -> list[dict]:
     """
     if not LOGS_FILE.exists():
         return []
-    
+
     logs = []
     with open(LOGS_FILE, "r") as f:
         for line in f:
@@ -105,8 +104,8 @@ def build_drift_summary(logs: list[dict] | None = None) -> dict:
 
     reference = [log for log in reference_window if "label" in log]
     current = [log for log in current_window if "label" in log] or reference
-    reference_failures = [log for log in reference_window if "error" in log]
-    current_failures = [log for log in current_window if "error" in log]
+    [log for log in reference_window if "error" in log]
+    [log for log in current_window if "error" in log]
 
     def _mean(values: list[float]) -> float:
         return sum(values) / len(values) if values else 0.0
@@ -166,61 +165,61 @@ def build_drift_summary(logs: list[dict] | None = None) -> dict:
 def analyze_logs():
     """Print analysis of prediction logs."""
     logs = load_logs()
-    
+
     if not logs:
         print("❌ No logs found in data/logs/predictions.jsonl")
         return
-    
+
     print(f"\n{'='*80}")
     print(f"PREDICTION LOG ANALYSIS — {len(logs)} entries")
     print(f"{'='*80}\n")
-    
+
     # Separate successes and failures
     successes = [log for log in logs if "label" in log]
     failures = [log for log in logs if "error" in log]
-    
+
     print(f"✓ Successful predictions: {len(successes)}")
     print(f"✗ Failed predictions:     {len(failures)}")
     print(f"Success rate: {len(successes) / len(logs) * 100:.1f}%\n")
-    
+
     # Analyze successful predictions
     if successes:
         print(f"{'─'*80}")
         print("SUCCESSFUL PREDICTIONS")
         print(f"{'─'*80}")
-        
+
         by_label = defaultdict(int)
         by_model = defaultdict(int)
         latencies = []
         confidences = []
-        
+
         for log in successes:
             by_label[log.get("label", "unknown")] += 1
             by_model[log.get("model_name", "unknown")] += 1
             latencies.append(log.get("latency_ms", 0))
             confidences.append(log.get("confidence", 0))
-        
-        print(f"\nPredictions by class:")
+
+        print("\nPredictions by class:")
         for label, count in sorted(by_label.items()):
             print(f"  • {label.upper()}: {count}")
-        
-        print(f"\nModels used:")
+
+        print("\nModels used:")
         for model, count in sorted(by_model.items(), key=lambda x: -x[1]):
             print(f"  • {model}: {count} predictions")
-        
+
         if latencies:
-            print(f"\nLatency stats (ms):")
+            print("\nLatency stats (ms):")
             print(f"  • Min:  {min(latencies):.1f}ms")
             print(f"  • Max:  {max(latencies):.1f}ms")
             print(f"  • Avg:  {sum(latencies) / len(latencies):.1f}ms")
-        
+
         if confidences:
-            print(f"\nConfidence stats:")
+            print("\nConfidence stats:")
             print(f"  • Min:  {min(confidences):.3f}")
             print(f"  • Max:  {max(confidences):.3f}")
             print(f"  • Avg:  {sum(confidences) / len(confidences):.3f}")
-        
-        print(f"\nRecent successes (last 5):")
+
+        print("\nRecent successes (last 5):")
         for log in successes[-5:]:
             ts = log.get("timestamp", "?")
             label = log.get("label", "?").upper()
@@ -228,46 +227,46 @@ def analyze_logs():
             latency = log.get("latency_ms", 0)
             model = log.get("model_name", "?")
             print(f"  [{ts}] {label} @ {conf:.1%} confidence ({latency:.0f}ms, {model})")
-    
+
     # Analyze failures
     if failures:
         print(f"\n{'─'*80}")
         print("FAILED PREDICTIONS")
         print(f"{'─'*80}")
-        
+
         error_types = defaultdict(int)
         for log in failures:
             error = log.get("error", "unknown error")
             # Extract error type (first 50 chars)
             error_type = error[:50] + "..." if len(error) > 50 else error
             error_types[error_type] += 1
-        
-        print(f"\nError types:")
+
+        print("\nError types:")
         for error, count in sorted(error_types.items(), key=lambda x: -x[1]):
             print(f"  • {error}: {count}x")
-        
-        print(f"\nRecent failures (last 5):")
+
+        print("\nRecent failures (last 5):")
         for log in failures[-5:]:
             ts = log.get("timestamp", "?")
             error = log.get("error", "?")
             error_short = error[:60] + "..." if len(error) > 60 else error
             print(f"  [{ts}] ✗ {error_short}")
-    
+
     print(f"\n{'='*80}\n")
 
 
 def show_recent(n: int = 10):
     """Show recent N log entries."""
     logs = load_logs()
-    
+
     if not logs:
         print("❌ No logs found")
         return
-    
+
     print(f"\n{'='*80}")
     print(f"RECENT LOGS (last {n} entries)")
     print(f"{'='*80}\n")
-    
+
     for log in logs[-n:]:
         if "label" in log:
             # Success

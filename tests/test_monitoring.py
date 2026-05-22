@@ -1,9 +1,7 @@
-import os
 import json
-from pathlib import Path
 
-from brain_tumor_mlops.api import metrics as metrics_mod
 from brain_tumor_mlops.api import logs_viewer
+from brain_tumor_mlops.api import metrics as metrics_mod
 
 
 def test_prometheus_exposition_contains_metrics():

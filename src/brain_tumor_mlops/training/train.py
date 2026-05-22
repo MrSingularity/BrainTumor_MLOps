@@ -126,7 +126,7 @@ def main(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
     np.random.seed(cfg.seed)
 
-    project_root = Path(cfg.paths.project_root).resolve()
+    Path(cfg.paths.project_root).resolve()
     processed_dir = Path(cfg.paths.processed)
     models_dir = Path(cfg.paths.models)
     models_dir.mkdir(parents=True, exist_ok=True)

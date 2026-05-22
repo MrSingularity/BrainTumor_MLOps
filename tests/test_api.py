@@ -1,13 +1,12 @@
 """Tests for API endpoints."""
 
 import base64
-import json
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
 
 import pytest
-from PIL import Image
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from brain_tumor_mlops.api.main import app
 
@@ -47,7 +46,7 @@ def get_sample_image_bytes() -> bytes:
     samples = list(DATA_ROOT.glob("*/[!_]*.tif"))
     if not samples:
         pytest.skip("No sample images found in dataset")
-    
+
     img = Image.open(samples[0])
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -147,7 +146,7 @@ def test_predict_tiny_image():
     buf = BytesIO()
     tiny_img.save(buf, format="PNG")
     image_base64 = base64.b64encode(buf.getvalue()).decode()
-    
+
     response = client.post(
         "/predict",
         json={
@@ -163,7 +162,7 @@ def test_predict_invalid_checkpoint():
     """Test predict with non-existent checkpoint."""
     image_bytes = get_sample_image_bytes()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
+
     response = client.post(
         "/predict",
         json={
@@ -179,7 +178,7 @@ def test_predict_with_resnet50():
     """Test predict endpoint with ResNet50 checkpoint."""
     image_bytes = get_sample_image_bytes()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
+
     response = client.post(
         "/predict",
         json={
@@ -190,7 +189,7 @@ def test_predict_with_resnet50():
     )
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["label"] in ["tumor", "no_tumor"]
     assert 0.0 <= data["confidence"] <= 1.0
     assert 0.0 <= data["risk_score"] <= 1.0
@@ -202,7 +201,7 @@ def test_predict_with_baseline():
     """Test predict endpoint with baseline checkpoint."""
     image_bytes = get_sample_image_bytes()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
+
     response = client.post(
         "/predict",
         json={
@@ -213,7 +212,7 @@ def test_predict_with_baseline():
     )
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["label"] in ["tumor", "no_tumor"]
     assert 0.0 <= data["confidence"] <= 1.0
     assert "baseline" in data["model_name"].lower()
@@ -222,7 +221,7 @@ def test_predict_with_baseline():
 def test_predict_file():
     """Test file upload prediction endpoint."""
     image_bytes = get_sample_image_bytes()
-    
+
     response = client.post(
         "/predict-file",
         data={
@@ -233,7 +232,7 @@ def test_predict_file():
     )
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["label"] in ["tumor", "no_tumor"]
     assert 0.0 <= data["confidence"] <= 1.0
     assert data["latency_ms"] >= 0
@@ -243,7 +242,7 @@ def test_predict_custom_threshold():
     """Test predict with custom threshold."""
     image_bytes = get_sample_image_bytes()
     image_base64 = base64.b64encode(image_bytes).decode()
-    
+
     response = client.post(
         "/predict",
         json={

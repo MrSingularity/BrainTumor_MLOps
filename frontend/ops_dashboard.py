@@ -6,6 +6,7 @@ and a lightweight operational drift summary based on stored logs.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,16 +14,18 @@ from typing import Any
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-import json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from brain_tumor_mlops.api.logs_viewer import build_drift_summary, load_logs, summarize_logs
-from brain_tumor_mlops.monitoring.drift_job import get_status_file
-
+from brain_tumor_mlops.api.logs_viewer import (  # noqa: E402
+    build_drift_summary,
+    load_logs,
+    summarize_logs,
+)
+from brain_tumor_mlops.monitoring.drift_job import get_status_file  # noqa: E402
 
 OPS_CSS = """
 <style>
@@ -133,7 +136,7 @@ def main() -> None:
         st.metric("Success Rate", f"{summary['success_rate']:.1f}%")
     with m3:
         st.metric("Positive Rate", f"{summary['positive_prediction_rate']:.1f}%")
-   
+
     # Small per-drift indicators (keep deltas and current window in the top row;
     # the full drift-status card is shown after the model mix)
     d1, d2, d3 = st.columns(3)

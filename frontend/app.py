@@ -15,17 +15,17 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 import streamlit as st
 import torch
+from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from brain_tumor_mlops.models.factory import load_checkpoint
-from brain_tumor_mlops.api.metrics import metrics
+from brain_tumor_mlops.api.metrics import metrics  # noqa: E402
+from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -318,10 +318,14 @@ def render_badge(label: str) -> None:
 
 def render_metrics(result: PredictionResult) -> None:
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.metric("Classification", result.label.replace("_", " ").upper())
-    with m2: st.metric("Confidence", f"{result.confidence * 100:.1f}%")
-    with m3: st.metric("Risk Score", f"{result.risk_score:.3f}")
-    with m4: st.metric("Latency", f"{result.latency_ms:.0f} ms")
+    with m1:
+        st.metric("Classification", result.label.replace("_", " ").upper())
+    with m2:
+        st.metric("Confidence", f"{result.confidence * 100:.1f}%")
+    with m3:
+        st.metric("Risk Score", f"{result.risk_score:.3f}")
+    with m4:
+        st.metric("Latency", f"{result.latency_ms:.0f} ms")
     st.progress(result.risk_score, text=f"Risk score: {result.risk_score:.3f} / 1.000")
 
 
@@ -384,8 +388,8 @@ def render_comparison_report(
 
     st.markdown(f"{consensus_badge}<br>", unsafe_allow_html=True)
 
-    study_id = hashlib.sha256(file_bytes).hexdigest()[:12].upper()
-    agreement_text = (
+    hashlib.sha256(file_bytes).hexdigest()[:12].upper()
+    (
         f"Both models agree on the classification. Score delta is {score_delta:.4f}"
         + (", indicating high consistency." if score_delta < 0.1 else ", but risk scores differ — review with caution.")
         if agree else
@@ -587,9 +591,11 @@ def main() -> None:
             try:
                 result = run_local_predictor(source_image, ckpt_a, float(threshold))
             except FileNotFoundError as e:
-                st.error(str(e)); return
+                st.error(str(e))
+                return
             except Exception as e:
-                st.error(f"Analysis failed: {e}"); return
+                st.error(f"Analysis failed: {e}")
+                return
 
             render_badge(result.label)
             render_metrics(result)
@@ -609,16 +615,19 @@ def main() -> None:
         # ── Comparison mode ───────────────────────────────────────────────────
         else:
             if ckpt_b is None:
-                st.error("Select a second checkpoint for comparison."); return
+                st.error("Select a second checkpoint for comparison.")
+                return
 
             st.markdown("<div class='clinical-header'>Checkpoint Comparison</div>", unsafe_allow_html=True)
             try:
                 r1 = run_local_predictor(source_image, ckpt_a, float(threshold))
                 r2 = run_local_predictor(source_image, ckpt_b, float(threshold))
             except FileNotFoundError as e:
-                st.error(str(e)); return
+                st.error(str(e))
+                return
             except Exception as e:
-                st.error(f"Analysis failed: {e}"); return
+                st.error(f"Analysis failed: {e}")
+                return
 
             col_a, col_vs, col_b = st.columns([1, 0.12, 1])
 

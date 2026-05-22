@@ -19,16 +19,12 @@ from __future__ import annotations
 
 import base64
 import io
-import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from PIL import Image
-
 
 # ---------------------------------------------------------------------------
 # App import — patch startup so tests don't need real checkpoints/stats
@@ -48,7 +44,6 @@ def patch_startup(monkeypatch):
 
 
 from brain_tumor_mlops.api.main import app  # noqa: E402 — import after monkeypatch
-
 
 # ---------------------------------------------------------------------------
 # Helpers

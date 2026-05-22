@@ -52,8 +52,8 @@ def test_label_matches_mask_content(artifacts):
     index, stats = artifacts
     ds = BrainMRIDataset(index, stats, split="train", return_mask=True)
     # Pick one positive and one negative sample
-    pos_idx = index[(index["split"] == "train") & index["has_tumor"]].index[0]
-    neg_idx = index[(index["split"] == "train") & ~index["has_tumor"]].index[0]
+    index[(index["split"] == "train") & index["has_tumor"]].index[0]
+    index[(index["split"] == "train") & ~index["has_tumor"]].index[0]
     pos_idx_local = (index.loc[index["split"] == "train"].reset_index(drop=True)
                      .index[index.loc[index["split"] == "train"].reset_index(drop=True)
                             ["has_tumor"]][0])

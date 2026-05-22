@@ -2,12 +2,10 @@
 
 import base64
 import logging
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from .core import (
     get_available_checkpoints,
@@ -15,7 +13,7 @@ from .core import (
     run_inference,
     validate_checkpoint,
 )
-from .logs_viewer import analyze_logs, load_logs
+from .logs_viewer import load_logs
 from .metrics import metrics
 from .schemas import AvailableModelsResponse, HealthResponse, PredictionRequest, PredictionResponse
 
@@ -173,7 +171,7 @@ def list_models() -> AvailableModelsResponse:
 def predict(request: PredictionRequest) -> PredictionResponse:
     """
     Predict tumor presence from base64-encoded image.
-    
+
     - **image_base64**: Base64-encoded image (PNG, JPG, or TIF)
     - **checkpoint_name**: Model checkpoint filename (default: resnet50_transfer.pt)
     - **threshold**: Classification threshold 0-1 (default: 0.5)
@@ -224,7 +222,7 @@ async def predict_file(
 ) -> PredictionResponse:
     """
     Predict tumor presence from file upload.
-    
+
     - **file**: Image file (PNG, JPG, or TIF)
     - **checkpoint_name**: Model checkpoint filename
     - **threshold**: Classification threshold
