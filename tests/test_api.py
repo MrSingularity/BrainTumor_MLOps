@@ -18,6 +18,30 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 
 
+@pytest.fixture(autouse=True)
+def ensure_dummy_checkpoints(tmp_path, monkeypatch):
+    """Ensure a models/ directory with lightweight checkpoint files exists for tests.
+
+    Some tests expect `resnet50_transfer.pt` (and others) to exist on disk. Create
+    zero-byte placeholder files if they're missing so endpoints that check for
+    checkpoint presence behave deterministically in CI.
+    """
+    # Create the models dir where the application expects it (core.PROJECT_ROOT/models)
+    import brain_tumor_mlops.api.core as core
+
+    core_models_dir = core.PROJECT_ROOT / "models"
+    core_models_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("resnet50_transfer.pt", "baseline.pt"):
+        p = core_models_dir / name
+        if not p.exists():
+            p.write_bytes(b"")
+
+    # Also ensure the API's startup and core validate paths see available checkpoints
+    monkeypatch.setattr("brain_tumor_mlops.api.main.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    monkeypatch.setattr("brain_tumor_mlops.api.core.get_available_checkpoints", lambda: ["resnet50_transfer.pt"])
+    yield
+
+
 def get_sample_image_bytes() -> bytes:
     """Get bytes from a sample image in the dataset."""
     samples = list(DATA_ROOT.glob("*/[!_]*.tif"))
@@ -51,6 +75,22 @@ def test_metrics():
     assert "latency_ms" in data
     assert "predictions_by_label" in data
     assert "models_used" in data
+
+
+def test_prometheus_metrics():
+    """Test Prometheus metrics endpoint."""
+    response = client.get("/metrics/prometheus")
+    assert response.status_code == 200
+    assert "brain_tumor_api_requests_total" in response.text
+
+
+def test_monitoring_summary():
+    """Test monitoring summary endpoint."""
+    response = client.get("/monitoring/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_events" in data
+    assert "positive_prediction_rate" in data
 
 
 def test_root():
@@ -96,6 +136,7 @@ def test_predict_empty_image():
             "checkpoint_name": "resnet50_transfer.pt",
         },
     )
+    # debug prints removed
     assert response.status_code == 422
     assert "Empty" in response.json()["detail"] or "Invalid" in response.json()["detail"]
 

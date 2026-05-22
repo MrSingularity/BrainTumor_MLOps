@@ -338,3 +338,21 @@ chore(deps): bump pytorch to 2.4.0
 | `models/{name}.pt missing` or shows up as a tiny text file (~130 bytes) | You cloned without Git LFS installed. Run `brew install git-lfs && git lfs install && git lfs pull` from inside the repo. |
 
 For anything else, ping the team on Discord/Slack, or open a GitHub issue.
+
+## Development Setup
+
+After cloning the repo, run the following to install hooks:
+
+```bash
+uv sync
+uv run pre-commit install
+uv run pre-commit install --hook-type commit-msg
+```
+
+Hooks run automatically on every commit:
+- `ruff` — lint and auto-fix
+- `ruff-format` — formatting
+- `detect-private-key` — prevents accidental secret commits
+- `check-merge-conflict` — catches unresolved merge conflicts
+- `end-of-file-fixer` — ensures files end with a newline
+- `conventional-pre-commit` — enforces conventional commit messages

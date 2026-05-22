@@ -393,38 +393,6 @@ def render_comparison_report(
         f"vs {r2.model_name} at {r2.risk_score:.3f}. Consider ensemble or human review."
     )
 
-    st.markdown(
-        f"""
-        <div class='report-box'>
-            <div style='border-bottom:1px solid #1e2936; margin-bottom:0.8rem; padding-bottom:0.4rem;'>
-                <span class='report-label'>Comparison Report · {study_id}</span>
-                &nbsp;&nbsp;<span style='color:#4a6070; font-size:0.62rem;'>{now.strftime('%Y-%m-%d %H:%M:%S')}</span>
-            </div>
-            <table>
-                <tr><th>Parameter</th><th>{r1.model_name}</th><th>{r2.model_name}</th><th>Delta</th></tr>
-                <tr>
-                    <td>Classification</td>
-                    <td style='color:{"#ef4444" if r1.label=="tumor" else "#22c55e"}'>{r1.label.upper()}</td>
-                    <td style='color:{"#ef4444" if r2.label=="tumor" else "#22c55e"}'>{r2.label.upper()}</td>
-                    <td>{"— agree" if agree else "⚡ differ"}</td>
-                </tr>
-                <tr><td>Risk Score</td><td>{r1.risk_score:.4f}</td><td>{r2.risk_score:.4f}</td><td>{r2.risk_score - r1.risk_score:+.4f}</td></tr>
-                <tr><td>Confidence</td><td>{r1.confidence*100:.1f}%</td><td>{r2.confidence*100:.1f}%</td><td>{(r2.confidence - r1.confidence)*100:+.1f}%</td></tr>
-                <tr><td>Latency</td><td>{r1.latency_ms:.0f} ms</td><td>{r2.latency_ms:.0f} ms</td><td>{r2.latency_ms - r1.latency_ms:+.0f} ms</td></tr>
-                <tr><td>Threshold</td><td colspan='3'>{threshold:.2f} (shared)</td></tr>
-            </table>
-            <div style='margin-top:1rem;'>
-                <span class='report-label'>Agreement Analysis</span>
-                <div class='report-finding'>{agreement_text}</div>
-            </div>
-            <div style='margin-top:0.6rem; color:#2a3a4a; font-size:0.6rem;'>
-                ⚠ NOT FOR CLINICAL USE · Research and educational purposes only.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
