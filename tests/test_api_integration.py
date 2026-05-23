@@ -148,7 +148,9 @@ class TestMetrics:
     @pytest.mark.asyncio
     async def test_metrics_returns_dict(self, client):
         resp = await client.get("/metrics")
-        assert isinstance(resp.json(), dict)
+        # /metrics now returns Prometheus text format, not JSON
+        assert resp.status_code == 200
+        assert "brain_tumor" in resp.text or "python_gc" in resp.text
 
 
 # ---------------------------------------------------------------------------
