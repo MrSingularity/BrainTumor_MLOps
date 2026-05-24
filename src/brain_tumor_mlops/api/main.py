@@ -2,11 +2,10 @@
 
 import base64
 import logging
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from .core import (
     get_available_checkpoints,
@@ -14,6 +13,7 @@ from .core import (
     run_inference,
     validate_checkpoint,
 )
+from .logs_viewer import load_logs
 from .metrics import metrics
 from .schemas import AvailableModelsResponse, HealthResponse, PredictionRequest, PredictionResponse
 
@@ -38,14 +38,24 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    """Validate environment on startup."""
+    """Validate environment on startup without hard-failing on missing artifacts."""
     try:
         get_normalization_stats()
+    except FileNotFoundError as exc:
+        logger.warning("Startup: normalization stats unavailable: %s", exc)
+    except Exception as exc:
+        logger.warning("Startup: normalization stats check failed: %s", exc)
+
+    try:
         available = get_available_checkpoints()
-        logger.info(f"✓ Startup: Found {len(available)} checkpoints: {available}")
-    except Exception as e:
-        logger.error(f"✗ Startup failed: {e}")
-        raise
+    except Exception as exc:
+        logger.warning("Startup: checkpoint discovery failed: %s", exc)
+        available = []
+
+    if available:
+        logger.info("Startup: found %d checkpoints: %s", len(available), available)
+    else:
+        logger.warning("Startup: no model checkpoints found; /models and /predict may be unavailable")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -60,6 +70,90 @@ def get_metrics():
     from fastapi.responses import Response
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/metrics/prometheus")
+def get_prometheus_metrics() -> PlainTextResponse:
+    """Expose Prometheus-compatible metrics for scraping."""
+    return PlainTextResponse(metrics.prometheus_metrics(), media_type=metrics.prometheus_content_type)
+
+
+@app.get("/monitoring/summary")
+def monitoring_summary() -> dict:
+    """Return a lightweight operational summary from the prediction log."""
+    logs = load_logs()
+    successes = [log for log in logs if "label" in log]
+    failures = [log for log in logs if "error" in log]
+    confidences = [float(log.get("confidence", 0.0)) for log in successes]
+    latencies = [float(log.get("latency_ms", 0.0)) for log in successes]
+    positive_rate = (
+        sum(1 for log in successes if log.get("label") == "tumor") / len(successes) * 100
+        if successes
+        else 0.0
+    )
+    return {
+        "total_events": len(logs),
+        "successful_events": len(successes),
+        "failed_events": len(failures),
+        "success_rate": len(successes) / len(logs) * 100 if logs else 0.0,
+        "positive_prediction_rate": positive_rate,
+        "average_confidence": sum(confidences) / len(confidences) if confidences else 0.0,
+        "average_latency_ms": sum(latencies) / len(latencies) if latencies else 0.0,
+    }
+
+
+@app.get("/monitoring/drift")
+def monitoring_drift() -> dict:
+    """Return a lightweight drift summary from the log history."""
+    logs = load_logs()
+    if not logs:
+        return {
+            "total_events": 0,
+            "reference_positive_rate": 0.0,
+            "current_positive_rate": 0.0,
+            "positive_rate_delta": 0.0,
+            "confidence_delta": 0.0,
+            "latency_delta_ms": 0.0,
+            "drift_score": 0.0,
+        }
+
+    midpoint = max(len(logs) // 2, 1)
+    reference = [log for log in logs[:midpoint] if "label" in log]
+    current = [log for log in logs[midpoint:] if "label" in log] or reference
+
+    def _mean(values: list[float]) -> float:
+        return sum(values) / len(values) if values else 0.0
+
+    def _positive_rate(entries: list[dict]) -> float:
+        return (
+            sum(1 for entry in entries if entry.get("label") == "tumor") / len(entries) * 100
+            if entries
+            else 0.0
+        )
+
+    reference_confidences = [float(entry.get("confidence", 0.0)) for entry in reference]
+    current_confidences = [float(entry.get("confidence", 0.0)) for entry in current]
+    reference_latencies = [float(entry.get("latency_ms", 0.0)) for entry in reference]
+    current_latencies = [float(entry.get("latency_ms", 0.0)) for entry in current]
+    reference_positive_rate = _positive_rate(reference)
+    current_positive_rate = _positive_rate(current)
+
+    confidence_delta = abs(_mean(current_confidences) - _mean(reference_confidences))
+    latency_delta_ms = abs(_mean(current_latencies) - _mean(reference_latencies))
+    positive_rate_delta = current_positive_rate - reference_positive_rate
+    drift_score = min(1.0, (confidence_delta * 2.0) + (abs(positive_rate_delta) / 100.0) + (latency_delta_ms / 1000.0))
+
+    return {
+        "total_events": len(logs),
+        "reference_events": len(reference),
+        "current_events": len(current),
+        "reference_positive_rate": reference_positive_rate,
+        "current_positive_rate": current_positive_rate,
+        "positive_rate_delta": positive_rate_delta,
+        "confidence_delta": confidence_delta,
+        "latency_delta_ms": latency_delta_ms,
+        "drift_score": drift_score,
+    }
 
 
 @app.get("/models", response_model=AvailableModelsResponse)
@@ -79,7 +173,7 @@ def list_models() -> AvailableModelsResponse:
 def predict(request: PredictionRequest) -> PredictionResponse:
     """
     Predict tumor presence from base64-encoded image.
-    
+
     - **image_base64**: Base64-encoded image (PNG, JPG, or TIF)
     - **checkpoint_name**: Model checkpoint filename (default: resnet50_transfer.pt)
     - **threshold**: Classification threshold 0-1 (default: 0.5)
@@ -130,7 +224,7 @@ async def predict_file(
 ) -> PredictionResponse:
     """
     Predict tumor presence from file upload.
-    
+
     - **file**: Image file (PNG, JPG, or TIF)
     - **checkpoint_name**: Model checkpoint filename
     - **threshold**: Classification threshold
@@ -181,6 +275,10 @@ def root():
         "docs": "/docs",
         "health": "/health",
         "models": "/models",
+        "metrics": "/metrics",
+        "prometheus_metrics": "/metrics/prometheus",
+        "monitoring_summary": "/monitoring/summary",
+        "drift_summary": "/monitoring/drift",
         "endpoints": {
             "POST /predict": "Predict from base64 image",
             "POST /predict-file": "Predict from file upload",
@@ -192,7 +290,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "mlops_project.api.main:app",
+        "brain_tumor_mlops.api.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

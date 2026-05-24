@@ -1,4 +1,4 @@
-"""Tests for mlops_project.api.logs_viewer.
+"""Tests for brain_tumor_mlops.api.logs_viewer.
 
 Uses tmp_path to create synthetic JSONL log files.
 Covers load_logs() and analyze_logs().
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-import mlops_project.api.logs_viewer as logs_viewer
-from mlops_project.api.logs_viewer import analyze_logs, load_logs
+import brain_tumor_mlops.api.logs_viewer as logs_viewer
+from brain_tumor_mlops.api.logs_viewer import analyze_logs, load_logs
 
 # ---------------------------------------------------------------------------
 # Helpers

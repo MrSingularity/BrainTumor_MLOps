@@ -1,0 +1,5 @@
+outs:
+- md5: bf9aac343bbcd68109cfddc2aca8f6ed
+  size: 94362394
+  hash: md5
+  path: resnet50_transfer.pt

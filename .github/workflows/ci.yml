@@ -26,3 +26,62 @@ jobs:
 
       - name: Run integration tests
         run: PYTHONPATH=src uv run pytest tests/test_api_integration.py -v
+
+  docker-smoke:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          tags: brain-tumor-api:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: false
+          tags: brain-tumor-frontend:ci
+
+      - name: Create minimal .env for docker compose
+        run: |
+          cat > .env <<'EOF'
+          API_PORT=8000
+          GRAFANA_USER=admin
+          GRAFANA_PASSWORD=admin
+          WANDB_API_KEY=
+          WANDB_PROJECT=brain-tumor-classification
+          WANDB_ENTITY=
+          EOF
+
+      - name: Start docker-compose services (api, prometheus, grafana)
+        run: |
+          docker compose up -d --build api prometheus grafana frontend
+          sleep 10
+
+      - name: Wait for API health
+        run: |
+          for i in {1..12}; do
+            if curl -fsS http://localhost:8000/health; then
+              echo "API healthy" && exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
+      - name: Check /metrics
+        run: |
+          curl -fsS http://localhost:8000/metrics | grep brain_tumor_api_requests_total || (echo "metrics missing" && exit 1)
+
+      - name: Tear down compose
+        if: always()
+        run: docker compose down -v

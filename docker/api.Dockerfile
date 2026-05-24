@@ -18,7 +18,7 @@ COPY pyproject.toml uv.lock README.md ./
 # Create venv and install CPU-only torch + all deps in one go
 RUN uv venv && \
     uv pip install --no-cache-dir \
-        torch==2.11.0 torchvision==0.26.0 \
+        "torch>=2.11.0,<3" "torchvision>=0.26.0,<1" \
         --index-url https://download.pytorch.org/whl/cpu && \
     uv pip install --no-cache-dir \
         fastapi uvicorn python-dotenv wandb \
@@ -71,7 +71,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["uvicorn", "mlops_project.api.main:app", \
+CMD ["uvicorn", "brain_tumor_mlops.api.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "1"]

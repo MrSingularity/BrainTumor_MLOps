@@ -1,7 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

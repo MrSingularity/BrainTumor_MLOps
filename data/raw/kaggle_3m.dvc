@@ -1,0 +1,6 @@
+outs:
+- md5: 23430e92121bab14d02529364c8477f9.dir
+  size: 1056310504
+  nfiles: 7860
+  hash: md5
+  path: kaggle_3m

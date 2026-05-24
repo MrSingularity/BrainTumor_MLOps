@@ -16,7 +16,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from mlops_project.models.factory import (
+from brain_tumor_mlops.models.factory import (
     MODEL_NAMES,
     build_model,
     count_parameters,
@@ -215,7 +215,7 @@ class TestLoadCheckpoint:
 
 class TestStatsLogisticRegression:
     def test_features_shape(self):
-        from mlops_project.models.baseline import StatsLogisticRegression
+        from brain_tumor_mlops.models.baseline import StatsLogisticRegression
 
         model = StatsLogisticRegression()
         x = torch.randn(4, 3, 64, 64)
@@ -223,7 +223,7 @@ class TestStatsLogisticRegression:
         assert features.shape == (4, 6)
 
     def test_forward_output_shape(self):
-        from mlops_project.models.baseline import StatsLogisticRegression
+        from brain_tumor_mlops.models.baseline import StatsLogisticRegression
 
         model = StatsLogisticRegression()
         x = torch.randn(4, 3, 64, 64)
@@ -231,7 +231,7 @@ class TestStatsLogisticRegression:
         assert out.shape == (4,)
 
     def test_forward_is_finite(self):
-        from mlops_project.models.baseline import StatsLogisticRegression
+        from brain_tumor_mlops.models.baseline import StatsLogisticRegression
 
         model = StatsLogisticRegression()
         x = torch.randn(4, 3, 64, 64)
@@ -239,6 +239,6 @@ class TestStatsLogisticRegression:
         assert torch.isfinite(out).all()
 
     def test_n_features_is_six(self):
-        from mlops_project.models.baseline import StatsLogisticRegression
+        from brain_tumor_mlops.models.baseline import StatsLogisticRegression
 
         assert StatsLogisticRegression.n_features == 6

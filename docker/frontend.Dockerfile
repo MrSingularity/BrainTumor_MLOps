@@ -19,8 +19,8 @@ RUN pip install --no-cache-dir --prefix=/install \
     hydra-core \
     pyarrow
 
-RUN pip install --no-cache-dir --prefix=/install \
-    torch==2.11.0 torchvision==0.26.0 \
+    RUN pip install --no-cache-dir --prefix=/install \
+    "torch>=2.11.0,<3" "torchvision>=0.26.0,<1" \
     --index-url https://download.pytorch.org/whl/cpu
 
 

@@ -110,13 +110,28 @@ def load_dataset_artifacts(
     import json
 
     processed_dir = Path(processed_dir)
-    index_path = processed_dir / "slice_index.parquet"
+    csv_path = processed_dir / "slice_index.csv"
+    parquet_path = processed_dir / "slice_index.parquet"
     stats_path = processed_dir / "norm_stats.json"
-    if not index_path.exists() or not stats_path.exists():
+    if not stats_path.exists() or not (csv_path.exists() or parquet_path.exists()):
         raise FileNotFoundError(
-            f"Run `python -m mlops_project.data.prepare` first — "
-            f"missing {index_path} and/or {stats_path}"
+            f"Run `python -m brain_tumor_mlops.data.prepare` first — "
+            f"missing {csv_path} / {parquet_path} and/or {stats_path}"
         )
-    index = pd.read_parquet(index_path)
+    # CSV is preferred: parquet (via pyarrow or fastparquet) triggers a
+    # Windows fatal access violation when pandas' ArrowStringArray meets
+    # torch+CUDA DLLs. CSV is pure text → zero native deps.
+    if csv_path.exists():
+        index = pd.read_csv(
+            csv_path,
+            dtype={
+                "patient_id": "object",
+                "image_path": "object",
+                "mask_path": "object",
+                "split": "object",
+            },
+        )
+    else:
+        index = pd.read_parquet(parquet_path, engine="fastparquet")
     stats = NormalisationStats.from_dict(json.loads(stats_path.read_text()))
     return index, stats

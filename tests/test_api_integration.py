@@ -19,16 +19,12 @@ from __future__ import annotations
 
 import base64
 import io
-import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from PIL import Image
-
 
 # ---------------------------------------------------------------------------
 # App import — patch startup so tests don't need real checkpoints/stats
@@ -38,17 +34,16 @@ from PIL import Image
 def patch_startup(monkeypatch):
     """Prevent startup() from failing when norm_stats / checkpoints are absent."""
     monkeypatch.setattr(
-        "mlops_project.api.main.get_normalization_stats",
+        "brain_tumor_mlops.api.main.get_normalization_stats",
         lambda: {"mean": [0.5, 0.5, 0.5], "std": [0.1, 0.1, 0.1]},
     )
     monkeypatch.setattr(
-        "mlops_project.api.main.get_available_checkpoints",
+        "brain_tumor_mlops.api.main.get_available_checkpoints",
         lambda: ["resnet50_transfer.pt"],
     )
 
 
-from mlops_project.api.main import app  # noqa: E402 — import after monkeypatch
-
+from brain_tumor_mlops.api.main import app  # noqa: E402 — import after monkeypatch
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -173,7 +168,7 @@ class TestModels:
     @pytest.mark.asyncio
     async def test_models_returns_503_when_no_checkpoints(self, client, monkeypatch):
         monkeypatch.setattr(
-            "mlops_project.api.main.get_available_checkpoints",
+            "brain_tumor_mlops.api.main.get_available_checkpoints",
             lambda: [],
         )
         resp = await client.get("/models")
@@ -190,11 +185,11 @@ class TestPredictHappyPath:
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
         monkeypatch.setattr(
-            "mlops_project.api.main.validate_checkpoint",
+            "brain_tumor_mlops.api.main.validate_checkpoint",
             lambda name: ckpt,
         )
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference",
+            "brain_tumor_mlops.api.main.run_inference",
             lambda *a, **kw: MOCK_INFERENCE_RESULT,
         )
         resp = await client.post(
@@ -207,9 +202,9 @@ class TestPredictHappyPath:
     async def test_predict_response_schema(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
+            "brain_tumor_mlops.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
         )
         resp = await client.post(
             "/predict",
@@ -226,9 +221,9 @@ class TestPredictHappyPath:
     async def test_predict_label_is_string(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
+            "brain_tumor_mlops.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
         )
         resp = await client.post("/predict", json={"image_base64": _make_image_b64()})
         assert isinstance(resp.json()["label"], str)
@@ -237,9 +232,9 @@ class TestPredictHappyPath:
     async def test_predict_confidence_bounded(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
+            "brain_tumor_mlops.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
         )
         resp = await client.post("/predict", json={"image_base64": _make_image_b64()})
         conf = resp.json()["confidence"]
@@ -276,9 +271,9 @@ class TestPredictValidationErrors:
     async def test_predict_422_inference_value_error(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference",
+            "brain_tumor_mlops.api.main.run_inference",
             lambda *a, **kw: (_ for _ in ()).throw(ValueError("bad image dimensions")),
         )
         resp = await client.post("/predict", json={"image_base64": _make_image_b64()})
@@ -301,7 +296,7 @@ class TestPredictBadRequest:
     @pytest.mark.asyncio
     async def test_predict_400_missing_checkpoint(self, client, monkeypatch):
         monkeypatch.setattr(
-            "mlops_project.api.main.validate_checkpoint",
+            "brain_tumor_mlops.api.main.validate_checkpoint",
             lambda name: (_ for _ in ()).throw(FileNotFoundError(f"{name} not found")),
         )
         resp = await client.post(
@@ -320,9 +315,9 @@ class TestPredictFileHappyPath:
     async def test_predict_file_returns_200(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
+            "brain_tumor_mlops.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
         )
         resp = await client.post(
             "/predict-file",
@@ -335,9 +330,9 @@ class TestPredictFileHappyPath:
     async def test_predict_file_response_has_label(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
+            "brain_tumor_mlops.api.main.run_inference", lambda *a, **kw: MOCK_INFERENCE_RESULT
         )
         resp = await client.post(
             "/predict-file",
@@ -355,9 +350,9 @@ class TestPredictFileBadImage:
     async def test_predict_file_422_on_bad_image(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference",
+            "brain_tumor_mlops.api.main.run_inference",
             lambda *a, **kw: (_ for _ in ()).throw(ValueError("unsupported image format")),
         )
         resp = await client.post(
@@ -369,7 +364,7 @@ class TestPredictFileBadImage:
     @pytest.mark.asyncio
     async def test_predict_file_400_missing_checkpoint(self, client, monkeypatch):
         monkeypatch.setattr(
-            "mlops_project.api.main.validate_checkpoint",
+            "brain_tumor_mlops.api.main.validate_checkpoint",
             lambda name: (_ for _ in ()).throw(FileNotFoundError(f"{name} not found")),
         )
         resp = await client.post(
@@ -384,9 +379,9 @@ class TestPredictFileTooLarge:
     async def test_predict_file_413_on_large_file(self, client, monkeypatch, tmp_path):
         ckpt = tmp_path / "resnet50_transfer.pt"
         ckpt.touch()
-        monkeypatch.setattr("mlops_project.api.main.validate_checkpoint", lambda name: ckpt)
+        monkeypatch.setattr("brain_tumor_mlops.api.main.validate_checkpoint", lambda name: ckpt)
         monkeypatch.setattr(
-            "mlops_project.api.main.run_inference",
+            "brain_tumor_mlops.api.main.run_inference",
             lambda *a, **kw: (_ for _ in ()).throw(
                 ValueError("Image too large: exceeds maximum allowed size")
             ),

@@ -47,9 +47,13 @@ class UNetClassifier(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.down1(x); x = self.pool(x)
-        x = self.down2(x); x = self.pool(x)
-        x = self.down3(x); x = self.pool(x)
-        x = self.down4(x); x = self.pool(x)
+        x = self.down1(x)
+        x = self.pool(x)
+        x = self.down2(x)
+        x = self.pool(x)
+        x = self.down3(x)
+        x = self.pool(x)
+        x = self.down4(x)
+        x = self.pool(x)
         x = self.bottleneck(x)
         return self.classifier(x).squeeze(-1)  # logits, shape (B,)

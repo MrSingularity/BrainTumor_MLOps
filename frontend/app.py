@@ -15,17 +15,17 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 import streamlit as st
 import torch
+from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from mlops_project.models.factory import load_checkpoint
-from mlops_project.api.metrics import metrics
+from brain_tumor_mlops.api.metrics import metrics  # noqa: E402
+from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -250,7 +250,7 @@ def load_normalization_stats(path_str: str) -> tuple[np.ndarray, np.ndarray]:
     if not path.exists():
         raise FileNotFoundError(
             "Normalization statistics not found. "
-            "Run `python -m mlops_project.data.prepare` to generate them."
+            "Run `python -m brain_tumor_mlops.data.prepare` to generate them."
         )
     payload = json.loads(path.read_text())
     mean = np.array(payload["mean"], dtype=np.float32).reshape(3, 1, 1)
@@ -318,10 +318,14 @@ def render_badge(label: str) -> None:
 
 def render_metrics(result: PredictionResult) -> None:
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.metric("Classification", result.label.replace("_", " ").upper())
-    with m2: st.metric("Confidence", f"{result.confidence * 100:.1f}%")
-    with m3: st.metric("Risk Score", f"{result.risk_score:.3f}")
-    with m4: st.metric("Latency", f"{result.latency_ms:.0f} ms")
+    with m1:
+        st.metric("Classification", result.label.replace("_", " ").upper())
+    with m2:
+        st.metric("Confidence", f"{result.confidence * 100:.1f}%")
+    with m3:
+        st.metric("Risk Score", f"{result.risk_score:.3f}")
+    with m4:
+        st.metric("Latency", f"{result.latency_ms:.0f} ms")
     st.progress(result.risk_score, text=f"Risk score: {result.risk_score:.3f} / 1.000")
 
 
@@ -384,45 +388,13 @@ def render_comparison_report(
 
     st.markdown(f"{consensus_badge}<br>", unsafe_allow_html=True)
 
-    study_id = hashlib.sha256(file_bytes).hexdigest()[:12].upper()
-    agreement_text = (
+    hashlib.sha256(file_bytes).hexdigest()[:12].upper()
+    (
         f"Both models agree on the classification. Score delta is {score_delta:.4f}"
         + (", indicating high consistency." if score_delta < 0.1 else ", but risk scores differ — review with caution.")
         if agree else
         f"Models produce conflicting classifications. {r1.model_name} scores {r1.risk_score:.3f} "
         f"vs {r2.model_name} at {r2.risk_score:.3f}. Consider ensemble or human review."
-    )
-
-    st.markdown(
-        f"""
-        <div class='report-box'>
-            <div style='border-bottom:1px solid #1e2936; margin-bottom:0.8rem; padding-bottom:0.4rem;'>
-                <span class='report-label'>Comparison Report · {study_id}</span>
-                &nbsp;&nbsp;<span style='color:#4a6070; font-size:0.62rem;'>{now.strftime('%Y-%m-%d %H:%M:%S')}</span>
-            </div>
-            <table>
-                <tr><th>Parameter</th><th>{r1.model_name}</th><th>{r2.model_name}</th><th>Delta</th></tr>
-                <tr>
-                    <td>Classification</td>
-                    <td style='color:{"#ef4444" if r1.label=="tumor" else "#22c55e"}'>{r1.label.upper()}</td>
-                    <td style='color:{"#ef4444" if r2.label=="tumor" else "#22c55e"}'>{r2.label.upper()}</td>
-                    <td>{"— agree" if agree else "⚡ differ"}</td>
-                </tr>
-                <tr><td>Risk Score</td><td>{r1.risk_score:.4f}</td><td>{r2.risk_score:.4f}</td><td>{r2.risk_score - r1.risk_score:+.4f}</td></tr>
-                <tr><td>Confidence</td><td>{r1.confidence*100:.1f}%</td><td>{r2.confidence*100:.1f}%</td><td>{(r2.confidence - r1.confidence)*100:+.1f}%</td></tr>
-                <tr><td>Latency</td><td>{r1.latency_ms:.0f} ms</td><td>{r2.latency_ms:.0f} ms</td><td>{r2.latency_ms - r1.latency_ms:+.0f} ms</td></tr>
-                <tr><td>Threshold</td><td colspan='3'>{threshold:.2f} (shared)</td></tr>
-            </table>
-            <div style='margin-top:1rem;'>
-                <span class='report-label'>Agreement Analysis</span>
-                <div class='report-finding'>{agreement_text}</div>
-            </div>
-            <div style='margin-top:0.6rem; color:#2a3a4a; font-size:0.6rem;'>
-                ⚠ NOT FOR CLINICAL USE · Research and educational purposes only.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
     )
 
 
@@ -619,9 +591,11 @@ def main() -> None:
             try:
                 result = run_local_predictor(source_image, ckpt_a, float(threshold))
             except FileNotFoundError as e:
-                st.error(str(e)); return
+                st.error(str(e))
+                return
             except Exception as e:
-                st.error(f"Analysis failed: {e}"); return
+                st.error(f"Analysis failed: {e}")
+                return
 
             render_badge(result.label)
             render_metrics(result)
@@ -641,16 +615,19 @@ def main() -> None:
         # ── Comparison mode ───────────────────────────────────────────────────
         else:
             if ckpt_b is None:
-                st.error("Select a second checkpoint for comparison."); return
+                st.error("Select a second checkpoint for comparison.")
+                return
 
             st.markdown("<div class='clinical-header'>Checkpoint Comparison</div>", unsafe_allow_html=True)
             try:
                 r1 = run_local_predictor(source_image, ckpt_a, float(threshold))
                 r2 = run_local_predictor(source_image, ckpt_b, float(threshold))
             except FileNotFoundError as e:
-                st.error(str(e)); return
+                st.error(str(e))
+                return
             except Exception as e:
-                st.error(f"Analysis failed: {e}"); return
+                st.error(f"Analysis failed: {e}")
+                return
 
             col_a, col_vs, col_b = st.columns([1, 0.12, 1])
 

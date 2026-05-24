@@ -1,18 +1,18 @@
 schema: '2.0'
 stages:
   prepare_data:
-    cmd: uv run python -m mlops_project.data.prepare
+    cmd: uv run python -m brain_tumor_mlops.data.prepare
     deps:
     - path: data/raw/kaggle_3m
       hash: md5
       md5: 23430e92121bab14d02529364c8477f9.dir
       size: 1056310504
       nfiles: 7860
-    - path: src/mlops_project/data/prepare.py
+    - path: src/brain_tumor_mlops/data/prepare.py
       hash: md5
-      md5: 52414cc33756490eda3a87f601b4cc1b
-      size: 6873
-    - path: src/mlops_project/data/splits.py
+      md5: 02d5145fbb3afc0398fa973c7b588380
+      size: 6885
+    - path: src/brain_tumor_mlops/data/splits.py
       hash: md5
       md5: 49be50d7022555fb13335f503fe5b70f
       size: 4780

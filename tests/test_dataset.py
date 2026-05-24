@@ -1,7 +1,7 @@
 """Smoke tests for BrainMRIDataset.
 
 Skipped if `data/processed/` artifacts have not been generated yet — the
-prep step runs in CI before this file via `python -m mlops_project.data.prepare`.
+prep step runs in CI before this file via `python -m brain_tumor_mlops.data.prepare`.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from mlops_project.data.dataset import (
+from brain_tumor_mlops.data.dataset import (
     BrainMRIDataset,
     NormalisationStats,
     load_dataset_artifacts,
@@ -23,7 +23,7 @@ PROCESSED = Path(__file__).resolve().parents[1] / "data" / "processed"
 @pytest.fixture(scope="module")
 def artifacts():
     if not (PROCESSED / "slice_index.parquet").exists():
-        pytest.skip("run `python -m mlops_project.data.prepare` first")
+        pytest.skip("run `python -m brain_tumor_mlops.data.prepare` first")
     return load_dataset_artifacts(PROCESSED)
 
 
@@ -52,8 +52,8 @@ def test_label_matches_mask_content(artifacts):
     index, stats = artifacts
     ds = BrainMRIDataset(index, stats, split="train", return_mask=True)
     # Pick one positive and one negative sample
-    pos_idx = index[(index["split"] == "train") & index["has_tumor"]].index[0]
-    neg_idx = index[(index["split"] == "train") & ~index["has_tumor"]].index[0]
+    index[(index["split"] == "train") & index["has_tumor"]].index[0]
+    index[(index["split"] == "train") & ~index["has_tumor"]].index[0]
     pos_idx_local = (index.loc[index["split"] == "train"].reset_index(drop=True)
                      .index[index.loc[index["split"] == "train"].reset_index(drop=True)
                             ["has_tumor"]][0])
