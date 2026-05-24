@@ -149,6 +149,9 @@ class PredictionMetrics:
             registry=self._registry,
         )
 
+        for status in ("success", "failed"):
+            self.request_counter.labels(status=status)
+
     def _refresh_drift_snapshot(self) -> dict[str, Any]:
         """Load the latest drift status from disk and publish it as metrics."""
         snapshot = {

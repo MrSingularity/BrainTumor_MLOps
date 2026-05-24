@@ -1,0 +1,95 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: brain-tumor-alerts
+    folder: Brain Tumor Detection
+    interval: 1m
+    rules:
+
+      - uid: high-error-rate
+        title: High Error Rate
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(brain_tumor_requests_total{status="error"}[5m]) / (rate(brain_tumor_requests_total[5m]) + 0.001)
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "-100"
+            model:
+              type: math
+              expression: "$A > 0.1"
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for the last 5 minutes"
+        labels:
+          severity: critical
+
+      - uid: high-latency
+        title: High P95 Latency
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.95, rate(brain_tumor_latency_ms_bucket[5m]))
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "-100"
+            model:
+              type: math
+              expression: "$A > 2000"
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "High latency detected"
+          description: "P95 latency is above 2000ms"
+        labels:
+          severity: warning
+
+      - uid: drift-alert
+        title: Drift Alert
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(increase(brain_tumor_predictions_total{label="tumor"}[1h])) / (sum(increase(brain_tumor_predictions_total[1h])) + 0.001)
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "-100"
+            model:
+              type: math
+              expression: "$A > 0.6"
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Drift detected"
+          description: "Positive prediction rate is above 60%"
+        labels:
+          severity: warning

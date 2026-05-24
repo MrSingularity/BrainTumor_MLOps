@@ -65,9 +65,9 @@ def health() -> HealthResponse:
 
 
 @app.get("/metrics")
-def get_metrics() -> dict:
-    """Get API metrics (requests, latency, predictions)."""
-    return metrics.get_metrics()
+def get_metrics() -> PlainTextResponse:
+    """Prometheus metrics endpoint."""
+    return PlainTextResponse(metrics.prometheus_metrics(), media_type=metrics.prometheus_content_type)
 
 
 @app.get("/metrics/prometheus")
