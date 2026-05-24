@@ -65,11 +65,9 @@ def health() -> HealthResponse:
 
 
 @app.get("/metrics")
-def get_metrics():
+def get_metrics() -> PlainTextResponse:
     """Prometheus metrics endpoint."""
-    from fastapi.responses import Response
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    return PlainTextResponse(metrics.prometheus_metrics(), media_type=metrics.prometheus_content_type)
 
 
 @app.get("/metrics/prometheus")
