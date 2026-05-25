@@ -1,5 +1,3 @@
-"""FastAPI application module."""
+"""FastAPI application package."""
 
-from .main import app
-
-__all__ = ["app"]
+__all__: list[str] = []

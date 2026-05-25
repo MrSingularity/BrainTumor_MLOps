@@ -65,7 +65,9 @@ uv sync
 
 `uv sync` creates `.venv/` and installs **all** dependencies (prod + dev) from `pyproject.toml` / `uv.lock`. No need to `pip install` anything else.
 
-> The four trained checkpoints (`models/*.pt`, ~115 MB total) are tracked via **Git LFS**, so `git clone` automatically pulls them as long as you ran `git lfs install` once on your machine. If you cloned before installing LFS, run `git lfs pull` from inside the repo.
+> The four trained checkpoints (`models/*.pt`, ~115 MB total) are tracked via **Git LFS**, so `git clone` pulls them if you ran `git lfs install` once on your machine. If you cloned before installing LFS, run `git lfs pull` from inside the repo.
+>
+> If you want a **no-LFS path** (recommended when disk or LFS setup is problematic), skip `git lfs pull` and download real checkpoints from W&B artifacts in step 3.
 
 ### 2. Configure your `.env` (secrets and infra only)
 
@@ -87,7 +89,20 @@ The model weights come automatically with `git clone` (via Git LFS). The process
 |---|---|---|
 | **Raw dataset** (original TIFFs, ~140 MB) | `uv run kaggle datasets download -d mateuszbuda/lgg-mri-segmentation -p data/raw --unzip` (needs Kaggle creds in `.env`) | `dvc pull` once #13 lands |
 | **Prepared dataset** (`data/processed/`) | Ask a teammate to share `data/processed/` (~5 MB, zips well) — drop it in place | `uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/lgg-mri-prepared:latest --root data/processed` |
-| **Trained model weights** (`models/*.pt`, ~115 MB total) | Already pulled by `git clone` thanks to **Git LFS** — nothing to do. Run `git lfs pull` if you cloned without LFS installed. | `uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-{name}:v0 --root models` |
+| **Trained model weights** (`models/*.pt`, ~115 MB total) | Pulled by `git clone` only if **Git LFS** is installed. If needed: `git lfs install` then `git lfs pull`. | Pull directly from W&B (no LFS needed) using the commands below. |
+
+**No-LFS model download (real checkpoints from W&B)**
+
+Use this path if Git LFS is not available or your machine has LFS temp-space issues.
+
+```bash
+uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-baseline:latest --root models
+uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-simple_cnn:latest --root models
+uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-unet_classifier:latest --root models
+uv run wandb artifact get nathan2massicot-berner-fachhochschule/brain-tumor-classification/model-resnet50_transfer:latest --root models
+```
+
+These are the same real `.pt` checkpoints used by the API/frontend stack, not synthetic placeholders.
 
 > If you don't want any download at all and have a GPU/MPS handy: retrain everything in ~30 min with `uv run python -m mlops_project.training.train --multirun model=baseline,simple_cnn,unet_classifier,resnet50_transfer`.
 
