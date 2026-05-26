@@ -62,16 +62,35 @@ html, body, [class*="css"] {
     visibility: visible !important;
 }
 
-/* ── Sidebar toggle buttons ── */
+/* ── Sidebar toggle: exakte Selektoren aus DOM ── */
+[data-testid="stBaseButton-headerNoPadding"],
 [data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"],
-button[kind="header"] {
+[data-testid="collapsedControl"] {
     visibility: visible !important;
     display: flex !important;
     opacity: 1 !important;
     z-index: 999999 !important;
+    pointer-events: auto !important;
+    background: #0d1117 !important;
+    border: 1px solid #1e2936 !important;
+}
+
+[data-testid="stBaseButton-headerNoPadding"] svg,
+[data-testid="stBaseButton-headerNoPadding"] svg path,
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stExpandSidebarButton"] svg path,
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stSidebarCollapseButton"] svg path,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stSidebarCollapsedControl"] svg path,
+[data-testid="collapsedControl"] svg,
+[data-testid="collapsedControl"] svg path {
+    fill: #4fc3f7 !important;
+    color: #4fc3f7 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .block-container { padding: 1.5rem 2rem !important; max-width: 1500px !important; }
@@ -83,8 +102,8 @@ button[kind="header"] {
 [data-testid="stSidebar"] * { color: #8a9bb0 !important; }
 
 /* Ausnahme: Toggle-Button innerhalb der Sidebar nicht überschreiben */
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapseButton"] * {
+[data-testid="stBaseButton-headerNoPadding"],
+[data-testid="stBaseButton-headerNoPadding"] * {
     color: #4fc3f7 !important;
     visibility: visible !important;
 }
