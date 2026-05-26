@@ -667,7 +667,7 @@ def main() -> None:
         st.markdown("<div class='clinical-header'>Image Input</div>", unsafe_allow_html=True)
         input_mode = st.radio(
             "Source",
-            ["Upload image", "Kamera / Foto aufnehmen", "Dataset examples"],
+            ["Upload image", "Camera", "Dataset examples"],
             horizontal=True, label_visibility="collapsed",
         )
 
@@ -691,10 +691,10 @@ def main() -> None:
                 source_image = Image.open(uploaded_file).convert("RGB")
                 preview_image = to_grayscale(source_image)
 
-        elif input_mode == "Kamera / Foto aufnehmen":
-            camera_file = st.camera_input("Foto aufnehmen")
+        elif input_mode == "Camera":
+            camera_file = st.camera_input("Take photo")
             if camera_file is None:
-                st.caption("Kamera-Zugriff erlauben und ein Foto aufnehmen.")
+                st.caption("Allow camera access and take a photo.")
             else:
                 file_bytes = camera_file.getvalue()
                 display_name = "camera_capture.jpg"
@@ -752,16 +752,16 @@ def main() -> None:
             st.image(mask_image, width="stretch")
 
         predict_clicked = (
-            input_mode in ("Upload image", "Kamera / Foto aufnehmen")
+            input_mode in ("Upload image", "Camera")
             and st.button("▶  Run Analysis", type="primary", width="stretch")
         )
 
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
         predict_clicked = (
-            input_mode in ("Upload image", "Kamera / Foto aufnehmen")
+            input_mode in ("Upload image", "Camera")
             and st.button("▶  Run Analysis", type="primary", use_container_width=True)
-        ) if input_mode in ("Upload image", "Kamera / Foto aufnehmen") else False
+        ) if input_mode in ("Upload image", "Camera") else False
 
         should_predict = predict_clicked or (input_mode == "Dataset examples" and file_bytes is not None)
 
