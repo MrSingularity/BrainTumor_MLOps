@@ -62,60 +62,8 @@ html, body, [class*="css"] {
     visibility: visible !important;
 }
 
-/* ── Sidebar toggle: exakte Selektoren aus DOM ── */
-[data-testid="stBaseButton-headerNoPadding"],
-[data-testid="stExpandSidebarButton"],
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    z-index: 999999 !important;
-    pointer-events: auto !important;
-    background: #0d1117 !important;
-    border: 1px solid #1e2936 !important;
-}
-
-[data-testid="stBaseButton-headerNoPadding"] svg,
-[data-testid="stBaseButton-headerNoPadding"] svg path,
-[data-testid="stExpandSidebarButton"] svg,
-[data-testid="stExpandSidebarButton"] svg path,
-[data-testid="stSidebarCollapseButton"] svg,
-[data-testid="stSidebarCollapseButton"] svg path,
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="stSidebarCollapsedControl"] svg path,
-[data-testid="collapsedControl"] svg,
-[data-testid="collapsedControl"] svg path {
-    fill: #4fc3f7 !important;
-    color: #4fc3f7 !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
 .block-container { padding: 1.5rem 2rem !important; max-width: 1500px !important; }
 
-[data-testid="stSidebar"] {
-    background: #0d1117 !important;
-    border-right: 1px solid #1e2936 !important;
-}
-[data-testid="stSidebar"] * { color: #8a9bb0 !important; }
-
-/* Ausnahme: Toggle-Button innerhalb der Sidebar nicht überschreiben */
-[data-testid="stBaseButton-headerNoPadding"],
-[data-testid="stBaseButton-headerNoPadding"] * {
-    color: #4fc3f7 !important;
-    visibility: visible !important;
-}
-
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-    color: #4fc3f7 !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
 [data-testid="stSlider"] > div > div > div { background: #1e2936 !important; }
 [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] {
     background: #4fc3f7 !important; border-color: #4fc3f7 !important;
@@ -180,6 +128,20 @@ html, body, [class*="css"] {
 [data-testid="stImage"] img { border: 1px solid #1e2936 !important; border-radius: 2px; }
 [data-testid="stAlert"] { background: #0d1117 !important; border-radius: 2px !important; border-width: 1px !important; }
 hr { border-color: #1e2936 !important; }
+
+/* Popover styling */
+[data-testid="stPopover"] {
+    background: #0d1117 !important;
+    border: 1px solid #1e2936 !important;
+    border-radius: 2px !important;
+}
+[data-testid="stPopover"] * { color: #8a9bb0 !important; }
+[data-testid="stPopoverBody"] {
+    background: #0d1117 !important;
+    border: 1px solid #1e2936 !important;
+    border-radius: 2px !important;
+    padding: 1rem !important;
+}
 
 table { border-collapse: collapse; width: 100%; }
 th {
@@ -600,7 +562,7 @@ def main() -> None:
         page_title="NeuroScan · Brain Tumor Detection",
         page_icon="🧠",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
     st.markdown(CLINICAL_CSS, unsafe_allow_html=True)
 
@@ -612,27 +574,18 @@ def main() -> None:
     seg_checkpoints = segmentation_checkpoints()
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("### 🧠 NeuroScan")
-        st.markdown(
-            "<div class='study-info'>Brain Tumor Detection System<br>MLOps Pipeline · v0.1.0</div>",
-            unsafe_allow_html=True,
-        )
+    with st.popover("⚙  Settings", use_container_width=False):
+        st.markdown("**🧠 NeuroScan** · Brain Tumor Detection System")
         st.divider()
-
-        st.markdown("<div class='clinical-header'>Mode</div>", unsafe_allow_html=True)
+        
         mode = st.radio(
             "Analysis mode",
             ["Single model", "Compare checkpoints"],
             horizontal=False,
-            label_visibility="collapsed",
         )
-
-        st.markdown("<div class='clinical-header'>Parameters</div>", unsafe_allow_html=True)
         threshold = st.slider("Decision threshold", 0.05, 0.95, 0.50)
-
-        st.markdown("<div class='clinical-header'>Checkpoint(s)</div>", unsafe_allow_html=True)
-        seg_ckpt: Path | None = None
+        
+        seg_ckpt = None
         localize = False
         if not checkpoints:
             st.error("No classification checkpoints found in models/")
@@ -643,42 +596,22 @@ def main() -> None:
                 sel_a = st.selectbox("Checkpoint", names, index=0)
                 ckpt_a = MODELS_ROOT / sel_a
                 ckpt_b = None
-
-                st.markdown(
-                    "<div class='clinical-header'>Localization</div>", unsafe_allow_html=True
-                )
                 if seg_checkpoints:
-                    localize = st.checkbox(
-                        "Localize tumor when detected", value=True,
-                        help="If classification says 'tumor', run a segmentation model "
-                             "and draw a matte-gold rectangle around the detected region.",
-                    )
+                    localize = st.checkbox("Localize tumor when detected", value=True)
                     if localize:
                         seg_names = [p.name for p in seg_checkpoints]
                         sel_seg = st.selectbox("Segmentation model", seg_names, index=0)
                         seg_ckpt = MODELS_ROOT / sel_seg
                 else:
-                    st.caption("No segmentation checkpoint available — train one to enable.")
+                    st.caption("No segmentation checkpoint available.")
             else:
                 sel_a = st.selectbox("Model A", names, index=0)
                 sel_b = st.selectbox("Model B", names, index=min(1, len(names) - 1))
                 ckpt_a = MODELS_ROOT / sel_a
                 ckpt_b = MODELS_ROOT / sel_b
-
+        
         st.divider()
-        st.markdown(
-            "<div class='study-info'>"
-            "① Select mode &amp; checkpoint(s)<br>"
-            "② Upload or pick a scan<br>"
-            "③ Run analysis<br>"
-            "④ Read diagnostic report"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div class='disclaimer'>⚠ Not for clinical use</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("⚠ Not for clinical use")
 
     # ── Page header ───────────────────────────────────────────────────────────
     h1, h2 = st.columns([2, 1])
