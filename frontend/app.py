@@ -219,6 +219,16 @@ tr:nth-child(even) td { background: #0d1117; }
 [data-testid="stCameraInput"] section {
     width: 100% !important;
 }
+
+[data-testid="collapsedControl"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    top: 0.5rem !important;
+    left: 0.5rem !important;
+    z-index: 999999 !important;
+}
 </style>
 """
 
