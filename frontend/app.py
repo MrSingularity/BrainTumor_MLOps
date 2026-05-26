@@ -40,6 +40,8 @@ IMAGE_SIZE = 256
 SEGMENTATION_MODEL_NAMES = frozenset({"unet_segmentation", "mini_unet"})
 BBOX_COLOR = (212, 175, 55)  # matte gold (#D4AF37)
 BBOX_LINE_WIDTH = 3
+SAMPLE_IMAGES_ROOT = Path(__file__).resolve().parent / "sample_images"
+
 
 # ── Clinical CSS ──────────────────────────────────────────────────────────────
 CLINICAL_CSS = """
@@ -269,17 +271,23 @@ def _scan_dataset() -> tuple[list[Path], list[Path]]:
 
 
 def find_sample_images(limit: int = SAMPLE_LIMIT) -> list[Path]:
-    """Return a balanced mix of tumor and no-tumor slices for the gallery."""
-    tumor_pool, clean_pool = _scan_dataset()
-    half = limit // 2
-    tumor_samples = tumor_pool[:half]
-    clean_samples = clean_pool[:limit - len(tumor_samples)]
-    interleaved: list[Path] = []
-    for t, c in zip(tumor_samples, clean_samples):
-        interleaved.extend([t, c])
-    interleaved.extend(tumor_samples[len(clean_samples):])
-    interleaved.extend(clean_samples[len(tumor_samples):])
-    return interleaved[:limit]
+    # Zuerst lokalen Kaggle-Datensatz prüfen
+    if DATA_ROOT.exists():
+        tumor_pool, clean_pool = _scan_dataset()
+        half = limit // 2
+        tumor_samples = tumor_pool[:half]
+        clean_samples = clean_pool[:limit - len(tumor_samples)]
+        interleaved: list[Path] = []
+        for t, c in zip(tumor_samples, clean_samples):
+            interleaved.extend([t, c])
+        return interleaved[:limit]
+    
+    # Fallback: eingebettete Beispielbilder
+    if SAMPLE_IMAGES_ROOT.exists():
+        return sorted(SAMPLE_IMAGES_ROOT.glob("*.tif"))[:limit] + \
+               sorted(SAMPLE_IMAGES_ROOT.glob("*.jpg"))[:limit]
+    
+    return []
 
 
 def available_checkpoints() -> list[Path]:
