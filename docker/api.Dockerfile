@@ -38,8 +38,8 @@ COPY --chown=appuser:appgroup data/processed/norm_stats.json /app/data/processed
 COPY --chown=appuser:appgroup scripts/download_models.sh /app/scripts/download_models.sh
 
 RUN chmod +x /app/scripts/download_models.sh && \
-    mkdir -p /app/data/logs /app/models /tmp/wandb_cache /tmp/wandb_data && \
-    chown -R appuser:appgroup /app/data /app/models /app/scripts /tmp/wandb_cache /tmp/wandb_data
+    mkdir -p /app/data/logs /app/models /app/artifacts /tmp/wandb_cache /tmp/wandb_data && \
+    chown -R appuser:appgroup /app /tmp/wandb_cache /tmp/wandb_data
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src" \
@@ -48,6 +48,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     TORCH_HOME=/tmp \
     WANDB_CACHE_DIR=/tmp/wandb_cache \
     WANDB_DATA_DIR=/tmp/wandb_data \
+    WANDB_ARTIFACT_DIR=/app/artifacts \
     HOME=/tmp
 
 USER appuser
