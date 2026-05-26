@@ -161,7 +161,7 @@ def main() -> None:
         if mix_df.empty:
             st.info("No model mix data yet.")
         else:
-            st.dataframe(mix_df, use_container_width=True)
+            st.dataframe(mix_df, width="stretch")
 
     with chart_col:
         st.markdown("<div class='ops-header'>Outcomes</div>", unsafe_allow_html=True)
@@ -193,7 +193,7 @@ def main() -> None:
                 text.set_color("#eef4fb")
             for text in autotexts:
                 text.set_color("#eef4fb")
-            st.pyplot(fig, use_container_width=True)
+            st.pyplot(fig, width="stretch")
 
     # --- Drift status card lives after the model mix and chart ---
     # Load persistent drift status (written by the scheduled drift job)
@@ -279,7 +279,7 @@ def main() -> None:
         df = df.iloc[::-1].reset_index(drop=True)
         # Limit columns shown for clarity
         display_df = df[["time", "status", "label", "confidence", "latency_ms", "model", "note"]]
-        st.dataframe(display_df, use_container_width=True)
+        st.dataframe(display_df, width="stretch")
 
     with st.expander("Log summary", expanded=False):
         st.json(summary)

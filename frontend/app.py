@@ -51,7 +51,17 @@ html, body, [class*="css"] {
     background-color: #0a0c0f !important;
     color: #c8d0d8 !important;
 }
-#MainMenu, footer, header { visibility: hidden; }
+/* Hide the menu, footer and toolbar — but NOT the whole header, which holds
+   the sidebar expand/collapse control. Hiding it leaves a collapsed sidebar
+   with no way to reopen it. */
+#MainMenu, footer { visibility: hidden; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stHeader"] { background: transparent !important; }
+/* Keep the sidebar toggle visible. In 1.57 the same control both collapses and
+   expands the sidebar, so it must never be hidden — otherwise a collapsed
+   sidebar can't be reopened. */
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"] { visibility: visible !important; }
 .block-container { padding: 1.5rem 2rem !important; max-width: 1500px !important; }
 
 [data-testid="stSidebar"] {
@@ -691,7 +701,7 @@ def main() -> None:
                 cols = st.columns(3)
                 for idx, sp in enumerate(sample_images):
                     with cols[idx % 3]:
-                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, use_container_width=True)
+                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, width="stretch")
                         is_sel = st.session_state.selected_sample == str(sp)
                         if st.button(
                             f"{'▶ ' if is_sel else ''}Select",
@@ -726,17 +736,17 @@ def main() -> None:
 
         st.markdown("<div class='clinical-header'>MRI Scan</div>", unsafe_allow_html=True)
         st.markdown("<div class='scan-label'>Axial · T1 · Grayscale</div>", unsafe_allow_html=True)
-        st.image(preview_image, use_container_width=True)
+        st.image(preview_image, width="stretch")
 
         if mask_image is not None:
             st.markdown("<div class='clinical-header'>Ground Truth Mask</div>", unsafe_allow_html=True)
             st.markdown("<div class='scan-label'>Tumor region annotation</div>", unsafe_allow_html=True)
-            st.image(mask_image, use_container_width=True)
+            st.image(mask_image, width="stretch")
 
-            predict_clicked = (
-                input_mode in ("Upload image", "Kamera / Foto aufnehmen")
-                and st.button("▶  Run Analysis", type="primary", use_container_width=True)
-            )
+        predict_clicked = (
+            input_mode in ("Upload image", "Kamera / Foto aufnehmen")
+            and st.button("▶  Run Analysis", type="primary", width="stretch")
+        )
 
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
@@ -792,7 +802,7 @@ def main() -> None:
                             "Tumor detected by classifier but localization model "
                             "found no significant region. Showing MRI without overlay."
                         )
-                        st.image(source_image.convert("RGB"), use_container_width=True)
+                        st.image(source_image.convert("RGB"), width="stretch")
                     else:
                         annotated = draw_bbox_on_image(source_image, loc.bbox)
                         x, y, w, h = loc.bbox
@@ -802,7 +812,7 @@ def main() -> None:
                             f"<span>{loc.model_name}</span></div>",
                             unsafe_allow_html=True,
                         )
-                        st.image(annotated, use_container_width=True)
+                        st.image(annotated, width="stretch")
 
             with st.expander("⚙ Analysis Details"):
                 st.markdown(
