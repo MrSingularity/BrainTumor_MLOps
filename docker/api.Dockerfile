@@ -1,16 +1,4 @@
-# ── Stage 1: Model downloader ─────────────────────────────────────────────────
-FROM python:3.12-slim AS model-fetcher
-
-RUN apt-get update && apt-get install -y git git-lfs && rm -rf /var/lib/apt/lists/*
-
-ARG GITHUB_TOKEN
-RUN git clone --no-checkout https://oauth2:${GITHUB_TOKEN}@github.com/MrSingularity/BrainTumor_MLOps.git /tmp/repo && \
-    cd /tmp/repo && \
-    git lfs install && \
-    git checkout main -- models/ data/processed/norm_stats.json && \
-    git lfs pull
-
-# ── Stage 2: Builder ──────────────────────────────────────────────────────────
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.5.10 /uv /usr/local/bin/uv
 
@@ -35,7 +23,7 @@ RUN uv venv && \
 COPY src/ ./src/
 RUN uv pip install --no-cache-dir -e . --no-deps
 
-# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
 
 RUN groupadd --gid 1001 appgroup && \
@@ -46,11 +34,15 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appgroup /app/src /app/src
 
-# Modelle aus model-fetcher Stage kopieren
-COPY --from=model-fetcher --chown=appuser:appgroup /tmp/repo/models /app/models
-COPY --from=model-fetcher --chown=appuser:appgroup /tmp/repo/data/processed /app/data/processed
+# norm_stats.json direkt aus dem Repo kopieren
+COPY --chown=appuser:appgroup data/processed/norm_stats.json /app/data/processed/norm_stats.json
 
-RUN mkdir -p /app/data/logs && chown -R appuser:appgroup /app/data
+# Download script kopieren
+COPY --chown=appuser:appgroup scripts/download_models.sh /app/scripts/download_models.sh
+RUN chmod +x /app/scripts/download_models.sh
+
+RUN mkdir -p /app/data/logs /app/models && \
+    chown -R appuser:appgroup /app/data /app/models /app/scripts
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src" \
@@ -61,10 +53,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 USER appuser
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["uvicorn", "brain_tumor_mlops.api.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "1"]
+CMD ["/app/scripts/download_models.sh"]
