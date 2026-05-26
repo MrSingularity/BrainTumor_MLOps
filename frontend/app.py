@@ -43,7 +43,6 @@ BBOX_LINE_WIDTH = 3
 SAMPLE_IMAGES_ROOT = Path(__file__).resolve().parent / "sample_images"
 
 
-# ── Clinical CSS ──────────────────────────────────────────────────────────────
 CLINICAL_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
@@ -53,17 +52,28 @@ html, body, [class*="css"] {
     background-color: #0a0c0f !important;
     color: #c8d0d8 !important;
 }
-/* Hide the menu, footer and toolbar — but NOT the whole header, which holds
-   the sidebar expand/collapse control. Hiding it leaves a collapsed sidebar
-   with no way to reopen it. */
+
 #MainMenu, footer { visibility: hidden; }
 [data-testid="stToolbar"] { display: none !important; }
-[data-testid="stHeader"] { background: transparent !important; }
-/* Keep the sidebar toggle visible. In 1.57 the same control both collapses and
-   expands the sidebar, so it must never be hidden — otherwise a collapsed
-   sidebar can't be reopened. */
+[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    visibility: visible !important;
+}
+
+/* ── Sidebar toggle buttons ── */
 [data-testid="stExpandSidebarButton"],
-[data-testid="stSidebarCollapseButton"] { visibility: visible !important; }
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+button[kind="header"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    z-index: 999999 !important;
+}
+
 .block-container { padding: 1.5rem 2rem !important; max-width: 1500px !important; }
 
 [data-testid="stSidebar"] {
@@ -71,6 +81,14 @@ html, body, [class*="css"] {
     border-right: 1px solid #1e2936 !important;
 }
 [data-testid="stSidebar"] * { color: #8a9bb0 !important; }
+
+/* Ausnahme: Toggle-Button innerhalb der Sidebar nicht überschreiben */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] * {
+    color: #4fc3f7 !important;
+    visibility: visible !important;
+}
+
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3 {
@@ -218,18 +236,6 @@ tr:nth-child(even) td { background: #0d1117; }
 }
 [data-testid="stCameraInput"] section {
     width: 100% !important;
-}
-
-[data-testid="collapsedControl"] {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-[data-testid="stHeader"] { 
-    background: transparent !important;
-    height: 3rem !important;
-    min-height: 3rem !important;
-    visibility: visible !important;
 }
 </style>
 """
