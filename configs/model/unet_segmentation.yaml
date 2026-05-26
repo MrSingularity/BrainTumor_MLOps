@@ -1,0 +1,5 @@
+# Full U-Net for binary tumour segmentation.
+name: unet_segmentation
+kwargs:
+  in_channels: 3
+  base: 32

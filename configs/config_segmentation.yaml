@@ -1,0 +1,27 @@
+# Root Hydra config for segmentation training.
+#   uv run python -m brain_tumor_mlops.training.train_segmentation \
+#       --config-name=config_segmentation model=unet_segmentation
+
+defaults:
+  - model: unet_segmentation
+  - data: default
+  - training: segmentation
+  - _self_
+
+paths:
+  project_root: ${oc.env:PROJECT_ROOT,${hydra:runtime.cwd}}
+  processed: ${paths.project_root}/data/processed
+  models: ${paths.project_root}/models
+
+seed: 42
+device: auto
+no_wandb: false
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}_${model.name}_seg
+  sweep:
+    dir: outputs/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${model.name}_${hydra.job.num}
+  job:
+    chdir: false

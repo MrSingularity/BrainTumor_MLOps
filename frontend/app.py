@@ -17,7 +17,8 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw
+from scipy import ndimage
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -32,6 +33,9 @@ MODELS_ROOT = PROJECT_ROOT / "models"
 PROCESSED_STATS_PATH = PROJECT_ROOT / "data" / "processed" / "norm_stats.json"
 SAMPLE_LIMIT = 6
 IMAGE_SIZE = 256
+SEGMENTATION_MODEL_NAMES = frozenset({"unet_segmentation", "mini_unet"})
+BBOX_COLOR = (212, 175, 55)  # matte gold (#D4AF37)
+BBOX_LINE_WIDTH = 3
 
 # ── Clinical CSS ──────────────────────────────────────────────────────────────
 CLINICAL_CSS = """
@@ -206,20 +210,52 @@ class PredictionResult:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def find_sample_images(limit: int = SAMPLE_LIMIT) -> list[Path]:
+@st.cache_data(show_spinner=False)
+def _scan_dataset() -> tuple[list[Path], list[Path]]:
+    """Walk the dataset once and split slices into tumor / no-tumor pools.
+
+    For each patient, returns the slice with the largest tumor area (if any)
+    and a clean slice with no tumor (if any).
+    """
+    tumor_pool: list[tuple[int, Path]] = []
+    clean_pool: list[Path] = []
     if not DATA_ROOT.exists():
-        return []
-    samples: list[Path] = []
+        return [], []
     for patient_dir in sorted(p for p in DATA_ROOT.iterdir() if p.is_dir()):
-        candidate = next(
-            (p for p in sorted(patient_dir.glob("*.tif")) if not p.name.endswith("_mask.tif")),
-            None,
-        )
-        if candidate:
-            samples.append(candidate)
-        if len(samples) >= limit:
-            break
-    return samples
+        best_tumor: tuple[int, Path] | None = None
+        clean_slice: Path | None = None
+        for img_path in sorted(patient_dir.glob("*.tif")):
+            if img_path.name.endswith("_mask.tif"):
+                continue
+            mask_path = img_path.with_name(f"{img_path.stem}_mask.tif")
+            if not mask_path.exists():
+                continue
+            mask_area = int(np.asarray(Image.open(mask_path)).astype(bool).sum())
+            if mask_area > 0:
+                if best_tumor is None or mask_area > best_tumor[0]:
+                    best_tumor = (mask_area, img_path)
+            elif clean_slice is None:
+                clean_slice = img_path
+        if best_tumor is not None:
+            tumor_pool.append(best_tumor)
+        if clean_slice is not None:
+            clean_pool.append(clean_slice)
+    tumor_pool.sort(key=lambda x: x[0], reverse=True)
+    return [p for _, p in tumor_pool], clean_pool
+
+
+def find_sample_images(limit: int = SAMPLE_LIMIT) -> list[Path]:
+    """Return a balanced mix of tumor and no-tumor slices for the gallery."""
+    tumor_pool, clean_pool = _scan_dataset()
+    half = limit // 2
+    tumor_samples = tumor_pool[:half]
+    clean_samples = clean_pool[:limit - len(tumor_samples)]
+    interleaved: list[Path] = []
+    for t, c in zip(tumor_samples, clean_samples):
+        interleaved.extend([t, c])
+    interleaved.extend(tumor_samples[len(clean_samples):])
+    interleaved.extend(clean_samples[len(tumor_samples):])
+    return interleaved[:limit]
 
 
 def available_checkpoints() -> list[Path]:
@@ -303,6 +339,96 @@ def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: fl
         confidence=confidence,
         risk_score=score,
         model_name=model_name,
+        latency_ms=latency_ms,
+    )
+
+
+# ── Segmentation / localization ───────────────────────────────────────────────
+
+@dataclass
+class LocalizationResult:
+    bbox: tuple[int, int, int, int] | None  # (x, y, w, h) in original-image coords
+    mask_area_pixels: int
+    model_name: str
+    latency_ms: float
+
+
+@st.cache_data(show_spinner=False)
+def is_segmentation_checkpoint(checkpoint_path_str: str) -> bool:
+    """Cheap check via the checkpoint metadata; falls back to filename."""
+    try:
+        ckpt = torch.load(checkpoint_path_str, map_location="cpu", weights_only=False)
+        if ckpt.get("task") == "segmentation":
+            return True
+        return str(ckpt.get("model_name", "")) in SEGMENTATION_MODEL_NAMES
+    except Exception:
+        return Path(checkpoint_path_str).stem in SEGMENTATION_MODEL_NAMES
+
+
+def classification_checkpoints() -> list[Path]:
+    return [p for p in available_checkpoints() if not is_segmentation_checkpoint(str(p))]
+
+
+def segmentation_checkpoints() -> list[Path]:
+    return [p for p in available_checkpoints() if is_segmentation_checkpoint(str(p))]
+
+
+def bbox_from_mask(mask: np.ndarray, min_area: int = 20) -> tuple[int, int, int, int] | None:
+    """Return (x, y, w, h) of the largest connected component, or None.
+
+    `min_area` filters out specks of noise; a real tumor occupies far more.
+    """
+    if not mask.any():
+        return None
+    labels, n = ndimage.label(mask)
+    if n == 0:
+        return None
+    areas = ndimage.sum(mask, labels, index=range(1, n + 1))
+    largest = int(np.argmax(areas)) + 1
+    if int(areas[largest - 1]) < min_area:
+        return None
+    ys, xs = np.where(labels == largest)
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+    return x0, y0, x1 - x0 + 1, y1 - y0 + 1
+
+
+def draw_bbox_on_image(image: Image.Image, bbox: tuple[int, int, int, int]) -> Image.Image:
+    """Overlay a matte gold rectangle on a copy of the image."""
+    rgb = image.convert("RGB").copy()
+    draw = ImageDraw.Draw(rgb)
+    x, y, w, h = bbox
+    draw.rectangle([x, y, x + w, y + h], outline=BBOX_COLOR, width=BBOX_LINE_WIDTH)
+    return rgb
+
+
+def run_segmentation(image: Image.Image, checkpoint_path: Path) -> tuple[np.ndarray, LocalizationResult]:
+    """Predict tumor mask and derive a bounding box in original-image coords."""
+    start = time.perf_counter()
+    mean, std = load_normalization_stats(str(PROCESSED_STATS_PATH))
+    model, ckpt = load_model_bundle(str(checkpoint_path))
+    orig_w, orig_h = image.size
+    x = preprocess_for_model(image, mean, std)
+    with torch.no_grad():
+        logits = model(x)
+        probs = torch.sigmoid(logits).squeeze().cpu().numpy()  # (H, W) at IMAGE_SIZE
+    mask_small = (probs >= 0.5).astype(np.uint8)
+
+    # Upscale mask back to original image resolution before bbox extraction.
+    if (orig_h, orig_w) != mask_small.shape:
+        mask_full = np.array(
+            Image.fromarray(mask_small * 255).resize((orig_w, orig_h), Image.NEAREST)
+        )
+        mask_full = (mask_full > 127).astype(np.uint8)
+    else:
+        mask_full = mask_small
+
+    bbox = bbox_from_mask(mask_full)
+    latency_ms = (time.perf_counter() - start) * 1000.0
+    return mask_full, LocalizationResult(
+        bbox=bbox,
+        mask_area_pixels=int(mask_full.sum()),
+        model_name=str(ckpt.get("model_name", checkpoint_path.stem)),
         latency_ms=latency_ms,
     )
 
@@ -413,7 +539,8 @@ def main() -> None:
         st.session_state.selected_sample = None
 
     now = datetime.now()
-    checkpoints = available_checkpoints()
+    checkpoints = classification_checkpoints()
+    seg_checkpoints = segmentation_checkpoints()
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
@@ -436,8 +563,10 @@ def main() -> None:
         threshold = st.slider("Decision threshold", 0.05, 0.95, 0.50)
 
         st.markdown("<div class='clinical-header'>Checkpoint(s)</div>", unsafe_allow_html=True)
+        seg_ckpt: Path | None = None
+        localize = False
         if not checkpoints:
-            st.error("No model checkpoints found in models/")
+            st.error("No classification checkpoints found in models/")
             ckpt_a = ckpt_b = None
         else:
             names = [p.name for p in checkpoints]
@@ -445,6 +574,22 @@ def main() -> None:
                 sel_a = st.selectbox("Checkpoint", names, index=0)
                 ckpt_a = MODELS_ROOT / sel_a
                 ckpt_b = None
+
+                st.markdown(
+                    "<div class='clinical-header'>Localization</div>", unsafe_allow_html=True
+                )
+                if seg_checkpoints:
+                    localize = st.checkbox(
+                        "Localize tumor when detected", value=True,
+                        help="If classification says 'tumor', run a segmentation model "
+                             "and draw a matte-gold rectangle around the detected region.",
+                    )
+                    if localize:
+                        seg_names = [p.name for p in seg_checkpoints]
+                        sel_seg = st.selectbox("Segmentation model", seg_names, index=0)
+                        seg_ckpt = MODELS_ROOT / sel_seg
+                else:
+                    st.caption("No segmentation checkpoint available — train one to enable.")
             else:
                 sel_a = st.selectbox("Model A", names, index=0)
                 sel_b = st.selectbox("Model B", names, index=min(1, len(names) - 1))
@@ -601,6 +746,33 @@ def main() -> None:
             render_metrics(result)
             render_diagnostic_report(result, file_bytes, display_name, float(threshold), now)
 
+            if localize and result.label == "tumor" and seg_ckpt is not None:
+                st.markdown(
+                    "<div class='clinical-header'>Tumor Localization</div>",
+                    unsafe_allow_html=True,
+                )
+                try:
+                    _, loc = run_segmentation(source_image, seg_ckpt)
+                except Exception as e:
+                    st.error(f"Localization failed: {e}")
+                else:
+                    if loc.bbox is None:
+                        st.warning(
+                            "Tumor detected by classifier but localization model "
+                            "found no significant region. Showing MRI without overlay."
+                        )
+                        st.image(source_image.convert("RGB"), use_container_width=True)
+                    else:
+                        annotated = draw_bbox_on_image(source_image, loc.bbox)
+                        x, y, w, h = loc.bbox
+                        st.markdown(
+                            f"<div class='scan-label'>Bounding box · {w}×{h} px · "
+                            f"area {loc.mask_area_pixels:,} px · model "
+                            f"<span>{loc.model_name}</span></div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.image(annotated, use_container_width=True)
+
             with st.expander("⚙ Analysis Details"):
                 st.markdown(
                     f"**Checkpoint:** `{ckpt_a.name}`  \n"
@@ -609,6 +781,8 @@ def main() -> None:
                     f"**Normalization:** per-channel mean/std from training set  \n"
                     f"**Inference device:** CPU  \n"
                     f"**Decision threshold:** {float(threshold):.2f}  \n"
+                    f"**Localization:** "
+                    f"{'enabled (' + seg_ckpt.name + ')' if (localize and seg_ckpt) else 'disabled'}  \n"
                     f"**Prediction logged:** yes"
                 )
 

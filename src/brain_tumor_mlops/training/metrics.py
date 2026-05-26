@@ -105,3 +105,47 @@ def dice_coefficient(pred_mask: np.ndarray, true_mask: np.ndarray) -> float:
         return 1.0
     inter = (pred & true).sum()
     return float(2 * inter / (pred.sum() + true.sum() + 1e-12))
+
+
+@dataclass(frozen=True)
+class SegmentationMetrics:
+    dice: float
+    iou: float
+    pixel_accuracy: float
+
+    def as_dict(self) -> dict[str, float]:
+        return {"dice": self.dice, "iou": self.iou, "pixel_accuracy": self.pixel_accuracy}
+
+    def pretty(self) -> str:
+        return f"dice={self.dice:.3f}  iou={self.iou:.3f}  pix_acc={self.pixel_accuracy:.3f}"
+
+
+def segmentation_metrics(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    *,
+    threshold: float = 0.5,
+) -> SegmentationMetrics:
+    """Per-batch Dice, IoU, pixel-accuracy averaged across samples.
+
+    Args:
+        y_true: array of shape (N, 1, H, W) or (N, H, W) with values {0, 1}.
+        y_prob: same shape, predicted probabilities (after sigmoid).
+        threshold: decision threshold for binarising `y_prob`.
+    """
+    y_true_bool = np.asarray(y_true).astype(bool).reshape(len(y_true), -1)
+    y_pred_bool = (np.asarray(y_prob) >= threshold).reshape(len(y_true), -1)
+
+    inter = (y_true_bool & y_pred_bool).sum(axis=1)
+    union = (y_true_bool | y_pred_bool).sum(axis=1)
+    sums = y_true_bool.sum(axis=1) + y_pred_bool.sum(axis=1)
+
+    dice = np.where(sums == 0, 1.0, 2 * inter / np.maximum(sums, 1))
+    iou = np.where(union == 0, 1.0, inter / np.maximum(union, 1))
+    pixel_acc = (y_true_bool == y_pred_bool).mean(axis=1)
+
+    return SegmentationMetrics(
+        dice=float(dice.mean()),
+        iou=float(iou.mean()),
+        pixel_accuracy=float(pixel_acc.mean()),
+    )

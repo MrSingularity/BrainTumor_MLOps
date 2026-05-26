@@ -1,0 +1,5 @@
+# Mini U-Net baseline — ~66x fewer params than unet_segmentation.
+name: mini_unet
+kwargs:
+  in_channels: 3
+  base: 16

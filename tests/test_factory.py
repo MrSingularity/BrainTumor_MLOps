@@ -63,11 +63,15 @@ class TestBuildModel:
         model = build_model("resnet50_transfer")
         assert model is not None
 
-    def test_model_names_tuple_has_four_entries(self):
-        assert len(MODEL_NAMES) == 4
-
     def test_all_expected_names_present(self):
-        expected = {"baseline", "simple_cnn", "unet_classifier", "resnet50_transfer"}
+        expected = {
+            "baseline",
+            "simple_cnn",
+            "unet_classifier",
+            "resnet50_transfer",
+            "unet_segmentation",
+            "mini_unet",
+        }
         assert expected == set(MODEL_NAMES)
 
 

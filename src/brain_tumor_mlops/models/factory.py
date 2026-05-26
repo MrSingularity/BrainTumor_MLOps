@@ -8,15 +8,25 @@ import torch
 from torch import nn
 
 from brain_tumor_mlops.models.baseline import StatsLogisticRegression
+from brain_tumor_mlops.models.mini_unet import MiniUNet
 from brain_tumor_mlops.models.simple_cnn import SimpleCNN
 from brain_tumor_mlops.models.transfer import ResNet50Transfer
 from brain_tumor_mlops.models.unet_classifier import UNetClassifier
+from brain_tumor_mlops.models.unet_segmentation import UNetSegmentation
 
-MODEL_NAMES = ("baseline", "simple_cnn", "unet_classifier", "resnet50_transfer")
+MODEL_NAMES = (
+    "baseline",
+    "simple_cnn",
+    "unet_classifier",
+    "resnet50_transfer",
+    "unet_segmentation",
+    "mini_unet",
+)
+SEGMENTATION_MODELS = ("unet_segmentation", "mini_unet")
 
 
 def build_model(name: str, **kwargs) -> nn.Module:
-    """Construct one of the four supported architectures.
+    """Construct one of the supported architectures.
 
     Raises:
         ValueError: if `name` is not in MODEL_NAMES.
@@ -29,6 +39,10 @@ def build_model(name: str, **kwargs) -> nn.Module:
         return UNetClassifier(**kwargs)
     if name == "resnet50_transfer":
         return ResNet50Transfer(**kwargs)
+    if name == "unet_segmentation":
+        return UNetSegmentation(**kwargs)
+    if name == "mini_unet":
+        return MiniUNet(**kwargs)
     raise ValueError(f"Unknown model: {name!r}. Valid: {MODEL_NAMES}")
 
 
