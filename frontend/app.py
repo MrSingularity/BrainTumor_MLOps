@@ -197,6 +197,16 @@ tr:nth-child(even) td { background: #0d1117; }
     letter-spacing: 0.08em; text-transform: uppercase; text-align: center;
     padding: 0.5rem; border-top: 1px solid #1e2936; margin-top: 1rem;
 }
+
+[data-testid="stCameraInput"] video,
+[data-testid="stCameraInput"] img {
+    width: 100% !important;
+    max-height: 500px !important;
+    object-fit: cover !important;
+}
+[data-testid="stCameraInput"] section {
+    width: 100% !important;
+}
 </style>
 """
 
@@ -313,39 +323,6 @@ def preprocess_for_model(image: Image.Image, mean: np.ndarray, std: np.ndarray) 
         return torch.from_numpy(normalized).float().unsqueeze(0)
     except RuntimeError:
         return torch.tensor(normalized.tolist(), dtype=torch.float32).unsqueeze(0)
-
-
-'''def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: float) -> PredictionResult:
-    start = time.perf_counter()
-    mean, std = load_normalization_stats(str(PROCESSED_STATS_PATH))
-    model, ckpt = load_model_bundle(str(checkpoint_path))
-    x = preprocess_for_model(image, mean, std)
-    with torch.no_grad():
-        score = float(torch.sigmoid(model(x)).item())
-    latency_ms = (time.perf_counter() - start) * 1000.0
-    label = "tumor" if score >= threshold else "no_tumor"
-    confidence = score if label == "tumor" else 1.0 - score
-    model_name = str(ckpt.get("model_name", checkpoint_path.stem))
-
-    metrics.log_prediction(
-        label=label,
-        confidence=confidence,
-        risk_score=score,
-        model_name=model_name,
-        latency_ms=latency_ms,
-        image_hash=hashlib.sha256(image.tobytes()).hexdigest()[:16],
-        checkpoint_name=checkpoint_path.name,
-        threshold=threshold,
-    )
-
-    return PredictionResult(
-        label=label,
-        confidence=confidence,
-        risk_score=score,
-        model_name=model_name,
-        latency_ms=latency_ms,
-    )
-'''
 
 def run_api_predictor(image: Image.Image, threshold: float, model_name: str = "default") -> PredictionResult:
     start = time.perf_counter()
@@ -759,6 +736,11 @@ def main() -> None:
 
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
+        predict_clicked = (
+            input_mode in ("Upload image", "Kamera / Foto aufnehmen")
+            and st.button("▶  Run Analysis", type="primary", use_container_width=True)
+        ) if input_mode in ("Upload image", "Kamera / Foto aufnehmen") else False
+
         should_predict = predict_clicked or (input_mode == "Dataset examples" and file_bytes is not None)
 
         if not should_predict:
