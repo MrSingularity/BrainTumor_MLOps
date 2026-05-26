@@ -63,17 +63,10 @@ def test_health():
 
 
 def test_metrics():
-    """Test metrics endpoint."""
+    """Test metrics endpoint returns Prometheus exposition format."""
     response = client.get("/metrics")
     assert response.status_code == 200
-    data = response.json()
-    assert "total_requests" in data
-    assert "successful_requests" in data
-    assert "failed_requests" in data
-    assert "success_rate" in data
-    assert "latency_ms" in data
-    assert "predictions_by_label" in data
-    assert "models_used" in data
+    assert "brain_tumor_api_requests_total" in response.text
 
 
 def test_prometheus_metrics():
