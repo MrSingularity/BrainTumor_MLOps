@@ -13,6 +13,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import io
+import requests
 
 import numpy as np
 import streamlit as st
@@ -27,6 +29,8 @@ if str(SRC_ROOT) not in sys.path:
 
 from brain_tumor_mlops.api.metrics import metrics  # noqa: E402
 from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
+
+API_BASE_URL = st.secrets.get("API_BASE_URL", "http://localhost:8000")
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -311,7 +315,7 @@ def preprocess_for_model(image: Image.Image, mean: np.ndarray, std: np.ndarray) 
         return torch.tensor(normalized.tolist(), dtype=torch.float32).unsqueeze(0)
 
 
-def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: float) -> PredictionResult:
+'''def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: float) -> PredictionResult:
     start = time.perf_counter()
     mean, std = load_normalization_stats(str(PROCESSED_STATS_PATH))
     model, ckpt = load_model_bundle(str(checkpoint_path))
@@ -341,7 +345,36 @@ def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: fl
         model_name=model_name,
         latency_ms=latency_ms,
     )
+'''
 
+def run_api_predictor(image: Image.Image, threshold: float, model_name: str = "default") -> PredictionResult:
+    start = time.perf_counter()
+    buf = io.BytesIO()
+    image.convert("RGB").save(buf, format="JPEG")
+    buf.seek(0)
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/predict",
+            files={"file": ("scan.jpg", buf, "image/jpeg")},
+            params={"threshold": threshold, "model_name": model_name},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError(f"API nicht erreichbar: {API_BASE_URL}")
+    except requests.exceptions.Timeout:
+        raise RuntimeError("Timeout nach 30s")
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(f"API-Fehler {response.status_code}: {response.text}") from e
+    latency_ms = (time.perf_counter() - start) * 1000.0
+    return PredictionResult(
+        label=data["label"],
+        confidence=data["confidence"],
+        risk_score=data["risk_score"],
+        model_name=data.get("model_name", model_name),
+        latency_ms=latency_ms,
+    )
 
 # ── Segmentation / localization ───────────────────────────────────────────────
 
@@ -634,7 +667,8 @@ def main() -> None:
     with left_col:
         st.markdown("<div class='clinical-header'>Image Input</div>", unsafe_allow_html=True)
         input_mode = st.radio(
-            "Source", ["Upload image", "Dataset examples"],
+            "Source",
+            ["Upload image", "Kamera / Foto aufnehmen", "Dataset examples"],
             horizontal=True, label_visibility="collapsed",
         )
 
@@ -656,6 +690,16 @@ def main() -> None:
                 file_bytes = uploaded_file.getvalue()
                 display_name = uploaded_file.name
                 source_image = Image.open(uploaded_file).convert("RGB")
+                preview_image = to_grayscale(source_image)
+
+        elif input_mode == "Kamera / Foto aufnehmen":
+            camera_file = st.camera_input("Foto aufnehmen")
+            if camera_file is None:
+                st.caption("Kamera-Zugriff erlauben und ein Foto aufnehmen.")
+            else:
+                file_bytes = camera_file.getvalue()
+                display_name = "camera_capture.jpg"
+                source_image = Image.open(camera_file).convert("RGB")
                 preview_image = to_grayscale(source_image)
 
         else:
@@ -708,9 +752,10 @@ def main() -> None:
             st.markdown("<div class='scan-label'>Tumor region annotation</div>", unsafe_allow_html=True)
             st.image(mask_image, use_container_width=True)
 
-        predict_clicked = (input_mode == "Upload image") and st.button(
-            "▶  Run Analysis", type="primary", use_container_width=True,
-        )
+            predict_clicked = (
+                input_mode in ("Upload image", "Kamera / Foto aufnehmen")
+                and st.button("▶  Run Analysis", type="primary", use_container_width=True)
+            )
 
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
@@ -734,7 +779,7 @@ def main() -> None:
         if mode == "Single model":
             st.markdown("<div class='clinical-header'>Diagnostic Report</div>", unsafe_allow_html=True)
             try:
-                result = run_local_predictor(source_image, ckpt_a, float(threshold))
+                result = run_api_predictor(source_image, float(threshold), model_name=ckpt_a.name)
             except FileNotFoundError as e:
                 st.error(str(e))
                 return
@@ -794,8 +839,8 @@ def main() -> None:
 
             st.markdown("<div class='clinical-header'>Checkpoint Comparison</div>", unsafe_allow_html=True)
             try:
-                r1 = run_local_predictor(source_image, ckpt_a, float(threshold))
-                r2 = run_local_predictor(source_image, ckpt_b, float(threshold))
+                r1 = run_api_predictor(source_image, float(threshold), model_name=ckpt_a.name)
+                r2 = run_api_predictor(source_image, float(threshold), model_name=ckpt_b.name)
             except FileNotFoundError as e:
                 st.error(str(e))
                 return
