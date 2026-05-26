@@ -34,21 +34,21 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appgroup /app/src /app/src
 
-# norm_stats.json direkt aus dem Repo kopieren
 COPY --chown=appuser:appgroup data/processed/norm_stats.json /app/data/processed/norm_stats.json
-
-# Download script kopieren
 COPY --chown=appuser:appgroup scripts/download_models.sh /app/scripts/download_models.sh
-RUN chmod +x /app/scripts/download_models.sh
 
-RUN mkdir -p /app/data/logs /app/models && \
-    chown -R appuser:appgroup /app/data /app/models /app/scripts
+RUN chmod +x /app/scripts/download_models.sh && \
+    mkdir -p /app/data/logs /app/models /tmp/wandb_cache /tmp/wandb_data && \
+    chown -R appuser:appgroup /app/data /app/models /app/scripts /tmp/wandb_cache /tmp/wandb_data
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TORCH_HOME=/tmp
+    TORCH_HOME=/tmp \
+    WANDB_CACHE_DIR=/tmp/wandb_cache \
+    WANDB_DATA_DIR=/tmp/wandb_data \
+    HOME=/tmp
 
 USER appuser
 EXPOSE 8000
