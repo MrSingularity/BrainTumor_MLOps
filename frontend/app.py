@@ -926,6 +926,40 @@ def main() -> None:
                     f"**Both predictions logged:** yes"
                 )
 
+    st.markdown("""
+<script>
+function fixSidebarButton() {
+    const btn = document.querySelector('[data-testid="stBaseButton-headerNoPadding"]') ||
+                document.querySelector('[data-testid="stExpandSidebarButton"]');
+    if (btn) {
+        btn.style.cssText = `
+            visibility: visible !important;
+            display: flex !important;
+            opacity: 1 !important;
+            z-index: 999999 !important;
+            position: fixed !important;
+            top: 8px !important;
+            left: 8px !important;
+            background: #0d1117 !important;
+            border: 1px solid #4fc3f7 !important;
+            border-radius: 4px !important;
+            pointer-events: auto !important;
+        `;
+        const svgPaths = btn.querySelectorAll('svg path, svg');
+        svgPaths.forEach(el => {
+            el.style.fill = '#4fc3f7';
+            el.style.color = '#4fc3f7';
+        });
+    }
+}
+
+fixSidebarButton();
+setInterval(fixSidebarButton, 500);
+const observer = new MutationObserver(fixSidebarButton);
+observer.observe(document.body, { childList: true, subtree: true });
+</script>
+""", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
