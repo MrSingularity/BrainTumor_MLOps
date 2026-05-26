@@ -221,13 +221,15 @@ tr:nth-child(even) td { background: #0d1117; }
 }
 
 [data-testid="collapsedControl"] {
-    display: block !important;
+    display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
-    position: fixed !important;
-    top: 0.5rem !important;
-    left: 0.5rem !important;
-    z-index: 999999 !important;
+}
+[data-testid="stHeader"] { 
+    background: transparent !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    visibility: visible !important;
 }
 </style>
 """
