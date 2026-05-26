@@ -19,7 +19,10 @@ RUN pip install --no-cache-dir --prefix=/install \
     hydra-core \
     pyarrow
 
-    RUN pip install --no-cache-dir --prefix=/install \
+RUN pip install --no-cache-dir --prefix=/install \
+    prometheus-client
+
+RUN pip install --no-cache-dir --prefix=/install \
     "torch>=2.11.0,<3" "torchvision>=0.26.0,<1" \
     --index-url https://download.pytorch.org/whl/cpu
 
@@ -42,7 +45,10 @@ RUN mkdir -p /app/data/processed /app/models /app/data/raw && \
 
 ENV PYTHONPATH="/app/src" \
     PYTHONUNBUFFERED=1 \
-    TORCH_HOME=/tmp
+    TORCH_HOME=/tmp \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp \
+    STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
 
 USER appuser
 
