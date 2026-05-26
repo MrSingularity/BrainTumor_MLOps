@@ -331,9 +331,12 @@ def run_api_predictor(image: Image.Image, threshold: float, model_name: str = "d
     buf.seek(0)
     try:
         response = requests.post(
-            f"{API_BASE_URL}/predict",
+            f"{API_BASE_URL}/predict-file",   
             files={"file": ("scan.jpg", buf, "image/jpeg")},
-            params={"threshold": threshold, "model_name": model_name},
+            data={                            
+                "checkpoint_name": model_name,
+                "threshold": str(threshold),
+            },
             timeout=30,
         )
         response.raise_for_status()
@@ -344,6 +347,7 @@ def run_api_predictor(image: Image.Image, threshold: float, model_name: str = "d
         raise RuntimeError("Timeout nach 30s")
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(f"API-Fehler {response.status_code}: {response.text}") from e
+
     latency_ms = (time.perf_counter() - start) * 1000.0
     return PredictionResult(
         label=data["label"],
