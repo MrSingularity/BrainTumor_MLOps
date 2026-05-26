@@ -1,5 +1,1 @@
 models/*.pt filter=lfs diff=lfs merge=lfs -text
-# resnet50_transfer.pt is the production champion (90 MB, sweep-derived) —
-# tracked via DVC + Backblaze B2 instead of Git LFS to keep all heavy ML
-# artifacts on a single storage backend.
-models/resnet50_transfer.pt !filter !diff !merge text=auto
