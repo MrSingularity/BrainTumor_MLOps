@@ -62,9 +62,11 @@ jobs:
           WANDB_PROJECT=brain-tumor-classification
           WANDB_ENTITY=
           EOF
+
       - name: Create dummy model checkpoint for CI
         run: |
           mkdir -p models
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu -q
           python3 - <<'EOF'
           import torch
           import torchvision.models as models
