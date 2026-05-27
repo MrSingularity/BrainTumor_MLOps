@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -30,7 +31,9 @@ if str(SRC_ROOT) not in sys.path:
 from brain_tumor_mlops.api.metrics import metrics  # noqa: E402
 from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
 
-API_BASE_URL = st.secrets.get("API_BASE_URL", "http://localhost:8000")
+# Resolve the API base URL from the environment (docker-compose sets API_URL to
+# the in-network service name), falling back to localhost for local dev.
+API_BASE_URL = os.getenv("API_URL", "http://localhost:8000")
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -679,7 +682,7 @@ def main() -> None:
                 cols = st.columns(3)
                 for idx, sp in enumerate(sample_images):
                     with cols[idx % 3]:
-                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, width="stretch")
+                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, use_container_width=True)
                         is_sel = st.session_state.selected_sample == str(sp)
                         if st.button(
                             f"{'▶ ' if is_sel else ''}Select",
@@ -714,16 +717,16 @@ def main() -> None:
 
         st.markdown("<div class='clinical-header'>MRI Scan</div>", unsafe_allow_html=True)
         st.markdown("<div class='scan-label'>Axial · T1 · Grayscale</div>", unsafe_allow_html=True)
-        st.image(preview_image, width="stretch")
+        st.image(preview_image, use_container_width=True)
 
         if mask_image is not None:
             st.markdown("<div class='clinical-header'>Ground Truth Mask</div>", unsafe_allow_html=True)
             st.markdown("<div class='scan-label'>Tumor region annotation</div>", unsafe_allow_html=True)
-            st.image(mask_image, width="stretch")
+            st.image(mask_image, use_container_width=True)
 
         predict_clicked = (
             input_mode in ("Upload image", "Camera")
-            and st.button("▶  Run Analysis", type="primary", width="stretch")
+            and st.button("▶  Run Analysis", type="primary", use_container_width=True)
         )
 
     # ── Results ───────────────────────────────────────────────────────────────
@@ -780,7 +783,7 @@ def main() -> None:
                             "Tumor detected by classifier but localization model "
                             "found no significant region. Showing MRI without overlay."
                         )
-                        st.image(source_image.convert("RGB"), width="stretch")
+                        st.image(source_image.convert("RGB"), use_container_width=True)
                     else:
                         annotated = draw_bbox_on_image(source_image, loc.bbox)
                         x, y, w, h = loc.bbox
@@ -790,7 +793,7 @@ def main() -> None:
                             f"<span>{loc.model_name}</span></div>",
                             unsafe_allow_html=True,
                         )
-                        st.image(annotated, width="stretch")
+                        st.image(annotated, use_container_width=True)
 
             with st.expander("⚙ Analysis Details"):
                 st.markdown(
