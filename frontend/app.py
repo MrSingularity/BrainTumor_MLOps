@@ -33,7 +33,7 @@ from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
 
 # Resolve the API base URL from the environment (docker-compose sets API_URL to
 # the in-network service name), falling back to localhost for local dev.
-API_BASE_URL = os.getenv("API_URL", "http://localhost:8000")
+API_BASE_URL = st.secrets.get("API_BASE_URL", None) or os.getenv("API_URL", "http://localhost:8000")
 
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
