@@ -55,14 +55,16 @@ jobs:
           tags: brain-tumor-frontend:ci
 
       - name: Create minimal .env for docker compose
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         run: |
-          cat > .env <<'EOF'
+          cat > .env <<EOF
           API_PORT=8000
           GRAFANA_USER=admin
           GRAFANA_PASSWORD=admin
-          WANDB_API_KEY=
+          WANDB_API_KEY=${WANDB_API_KEY}
           WANDB_PROJECT=brain-tumor-classification
-          WANDB_ENTITY=
+          WANDB_ENTITY=nathan2massicot-berner-fachhochschule
           EOF
 
       - name: Start docker-compose services (api, prometheus, grafana)
