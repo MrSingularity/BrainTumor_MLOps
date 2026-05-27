@@ -13,6 +13,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import io
+import requests
 
 import numpy as np
 import streamlit as st
@@ -28,6 +30,8 @@ if str(SRC_ROOT) not in sys.path:
 from brain_tumor_mlops.api.metrics import metrics  # noqa: E402
 from brain_tumor_mlops.models.factory import load_checkpoint  # noqa: E402
 
+API_BASE_URL = st.secrets.get("API_BASE_URL", "http://localhost:8000")
+
 DATA_ROOT = PROJECT_ROOT / "data" / "raw" / "kaggle_3m"
 MODELS_ROOT = PROJECT_ROOT / "models"
 PROCESSED_STATS_PATH = PROJECT_ROOT / "data" / "processed" / "norm_stats.json"
@@ -36,8 +40,9 @@ IMAGE_SIZE = 256
 SEGMENTATION_MODEL_NAMES = frozenset({"unet_segmentation", "mini_unet"})
 BBOX_COLOR = (212, 175, 55)  # matte gold (#D4AF37)
 BBOX_LINE_WIDTH = 3
+SAMPLE_IMAGES_ROOT = Path(__file__).resolve().parent / "sample_images"
 
-# ── Clinical CSS ──────────────────────────────────────────────────────────────
+
 CLINICAL_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
@@ -47,22 +52,18 @@ html, body, [class*="css"] {
     background-color: #0a0c0f !important;
     color: #c8d0d8 !important;
 }
-#MainMenu, footer, header { visibility: hidden; }
+
+#MainMenu, footer { visibility: hidden; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    visibility: visible !important;
+}
+
 .block-container { padding: 1.5rem 2rem !important; max-width: 1500px !important; }
 
-[data-testid="stSidebar"] {
-    background: #0d1117 !important;
-    border-right: 1px solid #1e2936 !important;
-}
-[data-testid="stSidebar"] * { color: #8a9bb0 !important; }
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-    color: #4fc3f7 !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
 [data-testid="stSlider"] > div > div > div { background: #1e2936 !important; }
 [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] {
     background: #4fc3f7 !important; border-color: #4fc3f7 !important;
@@ -127,6 +128,20 @@ html, body, [class*="css"] {
 [data-testid="stImage"] img { border: 1px solid #1e2936 !important; border-radius: 2px; }
 [data-testid="stAlert"] { background: #0d1117 !important; border-radius: 2px !important; border-width: 1px !important; }
 hr { border-color: #1e2936 !important; }
+
+/* Popover styling */
+[data-testid="stPopover"] {
+    background: #0d1117 !important;
+    border: 1px solid #1e2936 !important;
+    border-radius: 2px !important;
+}
+[data-testid="stPopover"] * { color: #8a9bb0 !important; }
+[data-testid="stPopoverBody"] {
+    background: #0d1117 !important;
+    border: 1px solid #1e2936 !important;
+    border-radius: 2px !important;
+    padding: 1rem !important;
+}
 
 table { border-collapse: collapse; width: 100%; }
 th {
@@ -193,6 +208,16 @@ tr:nth-child(even) td { background: #0d1117; }
     letter-spacing: 0.08em; text-transform: uppercase; text-align: center;
     padding: 0.5rem; border-top: 1px solid #1e2936; margin-top: 1rem;
 }
+
+[data-testid="stCameraInput"] video,
+[data-testid="stCameraInput"] img {
+    width: 100% !important;
+    max-height: 500px !important;
+    object-fit: cover !important;
+}
+[data-testid="stCameraInput"] section {
+    width: 100% !important;
+}
 </style>
 """
 
@@ -245,17 +270,23 @@ def _scan_dataset() -> tuple[list[Path], list[Path]]:
 
 
 def find_sample_images(limit: int = SAMPLE_LIMIT) -> list[Path]:
-    """Return a balanced mix of tumor and no-tumor slices for the gallery."""
-    tumor_pool, clean_pool = _scan_dataset()
-    half = limit // 2
-    tumor_samples = tumor_pool[:half]
-    clean_samples = clean_pool[:limit - len(tumor_samples)]
-    interleaved: list[Path] = []
-    for t, c in zip(tumor_samples, clean_samples):
-        interleaved.extend([t, c])
-    interleaved.extend(tumor_samples[len(clean_samples):])
-    interleaved.extend(clean_samples[len(tumor_samples):])
-    return interleaved[:limit]
+    # Zuerst lokalen Kaggle-Datensatz prüfen
+    if DATA_ROOT.exists():
+        tumor_pool, clean_pool = _scan_dataset()
+        half = limit // 2
+        tumor_samples = tumor_pool[:half]
+        clean_samples = clean_pool[:limit - len(tumor_samples)]
+        interleaved: list[Path] = []
+        for t, c in zip(tumor_samples, clean_samples):
+            interleaved.extend([t, c])
+        return interleaved[:limit]
+    
+    # Fallback: eingebettete Beispielbilder
+    if SAMPLE_IMAGES_ROOT.exists():
+        return sorted(SAMPLE_IMAGES_ROOT.glob("*.tif"))[:limit] + \
+               sorted(SAMPLE_IMAGES_ROOT.glob("*.jpg"))[:limit]
+    
+    return []
 
 
 def available_checkpoints() -> list[Path]:
@@ -310,38 +341,38 @@ def preprocess_for_model(image: Image.Image, mean: np.ndarray, std: np.ndarray) 
     except RuntimeError:
         return torch.tensor(normalized.tolist(), dtype=torch.float32).unsqueeze(0)
 
-
-def run_local_predictor(image: Image.Image, checkpoint_path: Path, threshold: float) -> PredictionResult:
+def run_api_predictor(image: Image.Image, threshold: float, model_name: str = "default") -> PredictionResult:
     start = time.perf_counter()
-    mean, std = load_normalization_stats(str(PROCESSED_STATS_PATH))
-    model, ckpt = load_model_bundle(str(checkpoint_path))
-    x = preprocess_for_model(image, mean, std)
-    with torch.no_grad():
-        score = float(torch.sigmoid(model(x)).item())
+    buf = io.BytesIO()
+    image.convert("RGB").save(buf, format="JPEG")
+    buf.seek(0)
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/predict-file",   
+            files={"file": ("scan.jpg", buf, "image/jpeg")},
+            data={                            
+                "checkpoint_name": model_name,
+                "threshold": str(threshold),
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError(f"API nicht erreichbar: {API_BASE_URL}")
+    except requests.exceptions.Timeout:
+        raise RuntimeError("Timeout nach 30s")
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(f"API-Fehler {response.status_code}: {response.text}") from e
+
     latency_ms = (time.perf_counter() - start) * 1000.0
-    label = "tumor" if score >= threshold else "no_tumor"
-    confidence = score if label == "tumor" else 1.0 - score
-    model_name = str(ckpt.get("model_name", checkpoint_path.stem))
-
-    metrics.log_prediction(
-        label=label,
-        confidence=confidence,
-        risk_score=score,
-        model_name=model_name,
-        latency_ms=latency_ms,
-        image_hash=hashlib.sha256(image.tobytes()).hexdigest()[:16],
-        checkpoint_name=checkpoint_path.name,
-        threshold=threshold,
-    )
-
     return PredictionResult(
-        label=label,
-        confidence=confidence,
-        risk_score=score,
-        model_name=model_name,
+        label=data["label"],
+        confidence=data["confidence"],
+        risk_score=data["risk_score"],
+        model_name=data.get("model_name", model_name),
         latency_ms=latency_ms,
     )
-
 
 # ── Segmentation / localization ───────────────────────────────────────────────
 
@@ -531,7 +562,7 @@ def main() -> None:
         page_title="NeuroScan · Brain Tumor Detection",
         page_icon="🧠",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
     st.markdown(CLINICAL_CSS, unsafe_allow_html=True)
 
@@ -543,27 +574,18 @@ def main() -> None:
     seg_checkpoints = segmentation_checkpoints()
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("### 🧠 NeuroScan")
-        st.markdown(
-            "<div class='study-info'>Brain Tumor Detection System<br>MLOps Pipeline · v0.1.0</div>",
-            unsafe_allow_html=True,
-        )
+    with st.popover("⚙  Settings", use_container_width=False):
+        st.markdown("**🧠 NeuroScan** · Brain Tumor Detection System")
         st.divider()
-
-        st.markdown("<div class='clinical-header'>Mode</div>", unsafe_allow_html=True)
+        
         mode = st.radio(
             "Analysis mode",
             ["Single model", "Compare checkpoints"],
             horizontal=False,
-            label_visibility="collapsed",
         )
-
-        st.markdown("<div class='clinical-header'>Parameters</div>", unsafe_allow_html=True)
         threshold = st.slider("Decision threshold", 0.05, 0.95, 0.50)
-
-        st.markdown("<div class='clinical-header'>Checkpoint(s)</div>", unsafe_allow_html=True)
-        seg_ckpt: Path | None = None
+        
+        seg_ckpt = None
         localize = False
         if not checkpoints:
             st.error("No classification checkpoints found in models/")
@@ -574,42 +596,22 @@ def main() -> None:
                 sel_a = st.selectbox("Checkpoint", names, index=0)
                 ckpt_a = MODELS_ROOT / sel_a
                 ckpt_b = None
-
-                st.markdown(
-                    "<div class='clinical-header'>Localization</div>", unsafe_allow_html=True
-                )
                 if seg_checkpoints:
-                    localize = st.checkbox(
-                        "Localize tumor when detected", value=True,
-                        help="If classification says 'tumor', run a segmentation model "
-                             "and draw a matte-gold rectangle around the detected region.",
-                    )
+                    localize = st.checkbox("Localize tumor when detected", value=True)
                     if localize:
                         seg_names = [p.name for p in seg_checkpoints]
                         sel_seg = st.selectbox("Segmentation model", seg_names, index=0)
                         seg_ckpt = MODELS_ROOT / sel_seg
                 else:
-                    st.caption("No segmentation checkpoint available — train one to enable.")
+                    st.caption("No segmentation checkpoint available.")
             else:
                 sel_a = st.selectbox("Model A", names, index=0)
                 sel_b = st.selectbox("Model B", names, index=min(1, len(names) - 1))
                 ckpt_a = MODELS_ROOT / sel_a
                 ckpt_b = MODELS_ROOT / sel_b
-
+        
         st.divider()
-        st.markdown(
-            "<div class='study-info'>"
-            "① Select mode &amp; checkpoint(s)<br>"
-            "② Upload or pick a scan<br>"
-            "③ Run analysis<br>"
-            "④ Read diagnostic report"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div class='disclaimer'>⚠ Not for clinical use</div>",
-            unsafe_allow_html=True,
-        )
+        st.caption("⚠ Not for clinical use")
 
     # ── Page header ───────────────────────────────────────────────────────────
     h1, h2 = st.columns([2, 1])
@@ -634,7 +636,8 @@ def main() -> None:
     with left_col:
         st.markdown("<div class='clinical-header'>Image Input</div>", unsafe_allow_html=True)
         input_mode = st.radio(
-            "Source", ["Upload image", "Dataset examples"],
+            "Source",
+            ["Upload image", "Camera", "Dataset examples"],
             horizontal=True, label_visibility="collapsed",
         )
 
@@ -658,6 +661,16 @@ def main() -> None:
                 source_image = Image.open(uploaded_file).convert("RGB")
                 preview_image = to_grayscale(source_image)
 
+        elif input_mode == "Camera":
+            camera_file = st.camera_input("Take photo")
+            if camera_file is None:
+                st.caption("Allow camera access and take a photo.")
+            else:
+                file_bytes = camera_file.getvalue()
+                display_name = "camera_capture.jpg"
+                source_image = Image.open(camera_file).convert("RGB")
+                preview_image = to_grayscale(source_image)
+
         else:
             sample_images = find_sample_images()
             if not sample_images:
@@ -666,7 +679,7 @@ def main() -> None:
                 cols = st.columns(3)
                 for idx, sp in enumerate(sample_images):
                     with cols[idx % 3]:
-                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, use_container_width=True)
+                        st.image(to_grayscale(load_image(sp)), caption=sp.parent.name, width="stretch")
                         is_sel = st.session_state.selected_sample == str(sp)
                         if st.button(
                             f"{'▶ ' if is_sel else ''}Select",
@@ -701,19 +714,25 @@ def main() -> None:
 
         st.markdown("<div class='clinical-header'>MRI Scan</div>", unsafe_allow_html=True)
         st.markdown("<div class='scan-label'>Axial · T1 · Grayscale</div>", unsafe_allow_html=True)
-        st.image(preview_image, use_container_width=True)
+        st.image(preview_image, width="stretch")
 
         if mask_image is not None:
             st.markdown("<div class='clinical-header'>Ground Truth Mask</div>", unsafe_allow_html=True)
             st.markdown("<div class='scan-label'>Tumor region annotation</div>", unsafe_allow_html=True)
-            st.image(mask_image, use_container_width=True)
+            st.image(mask_image, width="stretch")
 
-        predict_clicked = (input_mode == "Upload image") and st.button(
-            "▶  Run Analysis", type="primary", use_container_width=True,
+        predict_clicked = (
+            input_mode in ("Upload image", "Camera")
+            and st.button("▶  Run Analysis", type="primary", width="stretch")
         )
 
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
+        predict_clicked = (
+            input_mode in ("Upload image", "Camera")
+            and st.button("▶  Run Analysis", type="primary", use_container_width=True)
+        ) if input_mode in ("Upload image", "Camera") else False
+
         should_predict = predict_clicked or (input_mode == "Dataset examples" and file_bytes is not None)
 
         if not should_predict:
@@ -734,7 +753,7 @@ def main() -> None:
         if mode == "Single model":
             st.markdown("<div class='clinical-header'>Diagnostic Report</div>", unsafe_allow_html=True)
             try:
-                result = run_local_predictor(source_image, ckpt_a, float(threshold))
+                result = run_api_predictor(source_image, float(threshold), model_name=ckpt_a.name)
             except FileNotFoundError as e:
                 st.error(str(e))
                 return
@@ -761,7 +780,7 @@ def main() -> None:
                             "Tumor detected by classifier but localization model "
                             "found no significant region. Showing MRI without overlay."
                         )
-                        st.image(source_image.convert("RGB"), use_container_width=True)
+                        st.image(source_image.convert("RGB"), width="stretch")
                     else:
                         annotated = draw_bbox_on_image(source_image, loc.bbox)
                         x, y, w, h = loc.bbox
@@ -771,7 +790,7 @@ def main() -> None:
                             f"<span>{loc.model_name}</span></div>",
                             unsafe_allow_html=True,
                         )
-                        st.image(annotated, use_container_width=True)
+                        st.image(annotated, width="stretch")
 
             with st.expander("⚙ Analysis Details"):
                 st.markdown(
@@ -794,8 +813,8 @@ def main() -> None:
 
             st.markdown("<div class='clinical-header'>Checkpoint Comparison</div>", unsafe_allow_html=True)
             try:
-                r1 = run_local_predictor(source_image, ckpt_a, float(threshold))
-                r2 = run_local_predictor(source_image, ckpt_b, float(threshold))
+                r1 = run_api_predictor(source_image, float(threshold), model_name=ckpt_a.name)
+                r2 = run_api_predictor(source_image, float(threshold), model_name=ckpt_b.name)
             except FileNotFoundError as e:
                 st.error(str(e))
                 return
