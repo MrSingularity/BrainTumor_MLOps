@@ -724,11 +724,6 @@ def main() -> None:
             st.markdown("<div class='scan-label'>Tumor region annotation</div>", unsafe_allow_html=True)
             st.image(mask_image, use_container_width=True)
 
-        predict_clicked = (
-            input_mode in ("Upload image", "Camera")
-            and st.button("▶  Run Analysis", type="primary", use_container_width=True)
-        )
-
     # ── Results ───────────────────────────────────────────────────────────────
     with right_col:
         predict_clicked = (
